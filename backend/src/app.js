@@ -12,10 +12,34 @@ const { protect } = require("./middleware/authMiddleware");
 const notFound = require("./middleware/notFound");
 const errorHandler = require("./middleware/errorHandler");
 
+function parseAllowedOrigins() {
+  const configured = (process.env.FRONTEND_ORIGIN || "").trim();
+  const defaults = ["http://localhost:5173", "http://localhost:5174"];
+  if (!configured) {
+    return defaults;
+  }
+
+  return configured
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+}
+
 function createApp() {
   const app = express();
 
-  app.use(cors());
+  const allowedOrigins = parseAllowedOrigins();
+  app.use(
+    cors({
+      origin: (origin, callback) => {
+        if (!origin || allowedOrigins.includes(origin)) {
+          return callback(null, true);
+        }
+        return callback(new Error("CORS origin not allowed"));
+      },
+      credentials: true,
+    })
+  );
   app.use(helmet());
   app.use(express.json());
 

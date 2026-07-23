@@ -175,6 +175,50 @@ Tests verify:
 - Only one token can be in serving state per queue at a time.
 - Daily/weekly/monthly reports are computed on-demand from the Token collection by design (no pre-aggregated analytics collection).
 
+## Deployment (Render + Vercel)
+
+### Backend on Render
+
+This repo includes [render.yaml](render.yaml) for a Render web service blueprint.
+
+1. Push this repository to GitHub.
+2. In Render, create a new Blueprint and select this repo.
+3. Render will create service `queueflow-backend` using:
+  - Root directory: `backend`
+  - Build command: `npm install`
+  - Start command: `npm start`
+  - Health check path: `/health`
+4. Set required environment variables in Render:
+  - `MONGO_URI` (Atlas connection string)
+  - `JWT_SECRET` (strong secret)
+  - `FRONTEND_ORIGIN` (comma-separated allowed frontend origins)
+  - `GEMINI_API_KEY` (optional but needed for AI insights)
+5. Keep optional defaults unless you need to override:
+  - `JWT_EXPIRES_IN=1d`
+  - `GEMINI_MODEL=gemini-1.5-flash`
+  - `INSIGHTS_TIMEOUT_MS=12000`
+
+Example `FRONTEND_ORIGIN` value:
+
+`https://your-app.vercel.app,https://your-app-git-main-your-team.vercel.app`
+
+### Frontend on Vercel
+
+This repo includes [frontend/vercel.json](frontend/vercel.json) with SPA rewrite support.
+
+1. Create a new Vercel project from this repo.
+2. Set project root directory to `frontend`.
+3. Add frontend environment variables (from [frontend/.env.production.example](frontend/.env.production.example)):
+  - `VITE_API_URL=https://your-render-backend.onrender.com/api`
+  - `VITE_SOCKET_URL=https://your-render-backend.onrender.com`
+4. Deploy.
+
+### Deployment Notes
+
+- Backend CORS and Socket.io origin checks read `FRONTEND_ORIGIN`.
+- You can provide one or multiple origins using a comma-separated list.
+- If your Vercel preview URLs need access, include them in `FRONTEND_ORIGIN`.
+
 ## MongoDB Atlas DNS SRV Workaround
 
 On some Windows/network DNS setups, `mongodb+srv://` may fail with:

@@ -10,16 +10,30 @@ const { setIo } = require("./config/socket");
 
 const PORT = process.env.PORT || 5000;
 
+function parseAllowedOrigins() {
+  const configured = (process.env.FRONTEND_ORIGIN || "").trim();
+  const defaults = ["http://localhost:5173", "http://localhost:5174"];
+  if (!configured) {
+    return defaults;
+  }
+
+  return configured
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+}
+
 async function bootstrap() {
   validateEnv();
   await connectDB();
 
   const app = createApp();
   const server = http.createServer(app);
+  const allowedOrigins = parseAllowedOrigins();
 
   const io = new Server(server, {
     cors: {
-      origin: process.env.FRONTEND_ORIGIN || "http://localhost:5173",
+      origin: allowedOrigins,
       methods: ["GET", "POST", "PATCH", "DELETE"],
     },
   });
