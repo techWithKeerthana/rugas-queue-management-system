@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { getPublicTrackRequest } from "../api/tokenApi";
 import { usePublicTrackSocket } from "../hooks/usePublicTrackSocket";
@@ -15,6 +15,20 @@ export default function TrackTokenPage() {
   const [tracking, setTracking] = useState(null);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+  const previousTrackingRef = useRef(null);
+  const hasHydratedRef = useRef(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !("Notification" in window)) {
+      return undefined;
+    }
+
+    if (Notification.permission === "default") {
+      Notification.requestPermission().catch(() => {});
+    }
+
+    return undefined;
+  }, []);
 
   const fetchTracking = useCallback(async () => {
     try {
@@ -39,6 +53,37 @@ export default function TrackTokenPage() {
     onInvalidate: fetchTracking,
   });
 
+
+  useEffect(() => {
+    if (!tracking) {
+      return;
+    }
+
+    if (!hasHydratedRef.current) {
+      hasHydratedRef.current = true;
+      previousTrackingRef.current = tracking;
+      return;
+    }
+
+    const previousTracking = previousTrackingRef.current;
+    const isNextNow = tracking.status === "waiting" && tracking.positionInQueue === 1;
+    const wasNextNow = previousTracking?.status === "waiting" && previousTracking?.positionInQueue === 1;
+    const becameServing = tracking.status === "serving" && previousTracking?.status !== "serving";
+    const shouldNotify =
+      (isNextNow && !wasNextNow && previousTracking?.status !== "serving") || becameServing;
+
+    if (shouldNotify && typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
+      const title = tracking.status === "serving" ? "Now serving" : "You're next";
+      const body =
+        tracking.status === "serving"
+          ? `Token #${tracking.tokenNumber} is now being served.`
+          : `Token #${tracking.tokenNumber} is next in line.`;
+
+      new Notification(title, { body });
+    }
+
+    previousTrackingRef.current = tracking;
+  }, [tracking]);
   if (loading) {
     return <div className="mx-auto max-w-xl p-6 text-slate-700">Loading token status...</div>;
   }
