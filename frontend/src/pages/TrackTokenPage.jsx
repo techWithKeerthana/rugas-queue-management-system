@@ -99,6 +99,11 @@ export default function TrackTokenPage() {
           <div className="mt-4 space-y-3">
             <p className="text-sm text-slate-600">Token #{tracking?.tokenNumber}</p>
             <p className="text-lg font-semibold">{statusLabel[tracking?.status] || tracking?.status}</p>
+            {tracking?.status === "serving" && tracking?.assignedCounter ? (
+              <p className="rounded-lg bg-emerald-50 px-3 py-2 font-medium text-emerald-800">
+                Go to {tracking.assignedCounter}
+              </p>
+            ) : null}
             <p>
               Position: {tracking?.positionInQueue === null ? "N/A" : tracking?.positionInQueue}
             </p>

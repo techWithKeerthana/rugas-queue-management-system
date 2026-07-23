@@ -18,6 +18,7 @@ import TokenDndList from "../components/tokens/TokenDndList";
 import EmptyState from "../components/common/EmptyState";
 import Skeleton from "../components/common/Skeleton";
 import QueueJoinQrCard from "../components/queues/QueueJoinQrCard";
+import QueueCountersCard from "../components/queues/QueueCountersCard";
 
 export default function QueueDetailPage() {
   const { queueId } = useParams();
@@ -168,6 +169,8 @@ export default function QueueDetailPage() {
       </section>
 
       {queue ? <QueueJoinQrCard queueId={queue._id} queueName={queue.name} /> : null}
+
+      {queue ? <QueueCountersCard queueId={queue._id} queue={queue} tokens={tokens} onQueueChange={setQueue} /> : null}
 
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <div className="grid gap-3 md:grid-cols-[1fr_120px_auto]">
