@@ -1,29 +1,75 @@
+import { Suspense, lazy } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import ProtectedRoute from "./components/common/ProtectedRoute";
 import AppShell from "./components/layout/AppShell";
-import LoginPage from "./pages/LoginPage";
-import RegisterPage from "./pages/RegisterPage";
-import QueuesPage from "./pages/QueuesPage";
-import QueueDetailPage from "./pages/QueueDetailPage";
-import AnalyticsPage from "./pages/AnalyticsPage";
-import ActivityLogsPage from "./pages/ActivityLogsPage";
-import TrackTokenPage from "./pages/TrackTokenPage";
-import JoinPage from "./pages/JoinPage";
+
+const LoginPage = lazy(() => import("./pages/LoginPage"));
+const RegisterPage = lazy(() => import("./pages/RegisterPage"));
+const QueuesPage = lazy(() => import("./pages/QueuesPage"));
+const QueueDetailPage = lazy(() => import("./pages/QueueDetailPage"));
+const AnalyticsPage = lazy(() => import("./pages/AnalyticsPage"));
+const ActivityLogsPage = lazy(() => import("./pages/ActivityLogsPage"));
+const TrackTokenPage = lazy(() => import("./pages/TrackTokenPage"));
+const JoinPage = lazy(() => import("./pages/JoinPage"));
+
+function RouteFallback() {
+  return (
+    <div className="premium-page">
+      <section className="surface-card">
+        <p className="text-sm text-muted">Loading page...</p>
+      </section>
+    </div>
+  );
+}
+
+function LazyPage({ children }) {
+  return <Suspense fallback={<RouteFallback />}>{children}</Suspense>;
+}
 
 function App() {
   return (
     <Routes>
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/register" element={<RegisterPage />} />
-      <Route path="/join/:queueId" element={<JoinPage />} />
-      <Route path="/track/:queueId/:tokenId" element={<TrackTokenPage />} />
+      <Route
+        path="/login"
+        element={
+          <LazyPage>
+            <LoginPage />
+          </LazyPage>
+        }
+      />
+      <Route
+        path="/register"
+        element={
+          <LazyPage>
+            <RegisterPage />
+          </LazyPage>
+        }
+      />
+      <Route
+        path="/join/:queueId"
+        element={
+          <LazyPage>
+            <JoinPage />
+          </LazyPage>
+        }
+      />
+      <Route
+        path="/track/:queueId/:tokenId"
+        element={
+          <LazyPage>
+            <TrackTokenPage />
+          </LazyPage>
+        }
+      />
 
       <Route
         path="/queues"
         element={
           <ProtectedRoute>
             <AppShell>
-              <QueuesPage />
+              <LazyPage>
+                <QueuesPage />
+              </LazyPage>
             </AppShell>
           </ProtectedRoute>
         }
@@ -34,7 +80,9 @@ function App() {
         element={
           <ProtectedRoute>
             <AppShell>
-              <QueueDetailPage />
+              <LazyPage>
+                <QueueDetailPage />
+              </LazyPage>
             </AppShell>
           </ProtectedRoute>
         }
@@ -45,7 +93,9 @@ function App() {
         element={
           <ProtectedRoute>
             <AppShell>
-              <AnalyticsPage />
+              <LazyPage>
+                <AnalyticsPage />
+              </LazyPage>
             </AppShell>
           </ProtectedRoute>
         }
@@ -56,7 +106,9 @@ function App() {
         element={
           <ProtectedRoute>
             <AppShell>
-              <ActivityLogsPage />
+              <LazyPage>
+                <ActivityLogsPage />
+              </LazyPage>
             </AppShell>
           </ProtectedRoute>
         }
