@@ -5,6 +5,7 @@ import {
   analyticsHourlyRequest,
   analyticsExportCsvRequest,
   analyticsExportPdfRequest,
+  analyticsInsightsRequest,
   analyticsReportRequest,
   analyticsStatusRequest,
   analyticsSummaryRequest,
@@ -26,6 +27,8 @@ export default function AnalyticsPage() {
   const [hourlyTraffic, setHourlyTraffic] = useState([]);
   const [period, setPeriod] = useState("daily");
   const [reportRows, setReportRows] = useState([]);
+  const [insights, setInsights] = useState(null);
+  const [insightsLoading, setInsightsLoading] = useState(false);
 
   const downloadBlob = (blob, filename) => {
     const url = URL.createObjectURL(blob);
@@ -81,6 +84,51 @@ export default function AnalyticsPage() {
 
     fetchAnalytics();
   }, [selectedQueueId]);
+
+  useEffect(() => {
+    const fetchInsights = async (refresh = false) => {
+      if (!selectedQueueId) {
+        return;
+      }
+
+      setInsightsLoading(true);
+      try {
+        const { data } = await analyticsInsightsRequest(selectedQueueId, { refresh: refresh ? "true" : "false" });
+        setInsights(data);
+      } catch (error) {
+        setInsights({
+          available: false,
+          insightText: "Insights temporarily unavailable. Please try again shortly.",
+          message: "Insights temporarily unavailable",
+        });
+      } finally {
+        setInsightsLoading(false);
+      }
+    };
+
+    fetchInsights(false);
+  }, [selectedQueueId]);
+
+  const refreshInsights = async () => {
+    if (!selectedQueueId) {
+      return;
+    }
+    setInsightsLoading(true);
+    try {
+      const { data } = await analyticsInsightsRequest(selectedQueueId, { refresh: "true" });
+      setInsights(data);
+      toast.success("Insights refreshed");
+    } catch (error) {
+      setInsights({
+        available: false,
+        insightText: "Insights temporarily unavailable. Please try again shortly.",
+        message: "Insights temporarily unavailable",
+      });
+      toast.error("Insights temporarily unavailable");
+    } finally {
+      setInsightsLoading(false);
+    }
+  };
 
   useEffect(() => {
     const fetchReport = async () => {
@@ -170,6 +218,30 @@ export default function AnalyticsPage() {
             <StatusPieChart data={statusDistribution} />
           </div>
           <HourlyTrafficChart data={hourlyTraffic} />
+
+          <section className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">AI Insights</h3>
+              <button
+                type="button"
+                onClick={refreshInsights}
+                disabled={insightsLoading}
+                className="rounded-md bg-teal-600 px-3 py-1.5 text-sm font-semibold text-white disabled:opacity-60"
+              >
+                {insightsLoading ? "Refreshing..." : "Refresh Insights"}
+              </button>
+            </div>
+
+            <p className="whitespace-pre-wrap text-sm text-slate-700 dark:text-slate-300">
+              {insights?.insightText || "Insights temporarily unavailable. Please try again shortly."}
+            </p>
+            {insights?.stale ? (
+              <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">Showing cached insights due to temporary API issues.</p>
+            ) : null}
+            {!insights?.available ? (
+              <p className="mt-2 text-xs text-rose-700 dark:text-rose-300">Insights temporarily unavailable.</p>
+            ) : null}
+          </section>
 
           <section className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
             <h3 className="mb-3 text-lg font-semibold text-slate-900 dark:text-slate-100">{period} report</h3>

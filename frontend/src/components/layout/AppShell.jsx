@@ -40,6 +40,9 @@ export default function AppShell({ children }) {
             <NavLink to="/analytics" className={({ isActive }) => (isActive ? "tab-link tab-link-active" : "tab-link")}>
               Analytics
             </NavLink>
+            <NavLink to="/activity-logs" className={({ isActive }) => (isActive ? "tab-link tab-link-active" : "tab-link")}>
+              Activity
+            </NavLink>
             <div className="relative" ref={menuRef}>
               <button
                 type="button"

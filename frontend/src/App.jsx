@@ -6,6 +6,7 @@ import RegisterPage from "./pages/RegisterPage";
 import QueuesPage from "./pages/QueuesPage";
 import QueueDetailPage from "./pages/QueueDetailPage";
 import AnalyticsPage from "./pages/AnalyticsPage";
+import ActivityLogsPage from "./pages/ActivityLogsPage";
 
 function App() {
   return (
@@ -41,6 +42,17 @@ function App() {
           <ProtectedRoute>
             <AppShell>
               <AnalyticsPage />
+            </AppShell>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/activity-logs"
+        element={
+          <ProtectedRoute>
+            <AppShell>
+              <ActivityLogsPage />
             </AppShell>
           </ProtectedRoute>
         }
