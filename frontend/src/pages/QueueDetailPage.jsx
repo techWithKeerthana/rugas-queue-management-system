@@ -17,6 +17,7 @@ import AddTokenForm from "../components/tokens/AddTokenForm";
 import TokenDndList from "../components/tokens/TokenDndList";
 import EmptyState from "../components/common/EmptyState";
 import Skeleton from "../components/common/Skeleton";
+import QueueJoinQrCard from "../components/queues/QueueJoinQrCard";
 
 export default function QueueDetailPage() {
   const { queueId } = useParams();
@@ -165,6 +166,8 @@ export default function QueueDetailPage() {
           </button>
         </div>
       </section>
+
+      {queue ? <QueueJoinQrCard queueId={queue._id} queueName={queue.name} /> : null}
 
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <div className="grid gap-3 md:grid-cols-[1fr_120px_auto]">

@@ -15,6 +15,7 @@ const createApp = require("../src/app");
 const { connectDB, disconnectDB } = require("../src/config/db");
 const Token = require("../src/models/Token");
 const { safeEmitToQueue } = require("../src/config/socket");
+const { resetPublicRateLimiters } = require("../src/middleware/rateLimiters");
 const { generateQueueInsights } = require("../src/services/aiInsightsService");
 
 let app;
@@ -66,6 +67,7 @@ beforeAll(async () => {
 afterEach(async () => {
   safeEmitToQueue.mockClear();
   generateQueueInsights.mockReset();
+  resetPublicRateLimiters();
   if (mongoose.connection.readyState === 1 && mongoose.connection.db) {
     await mongoose.connection.db.dropDatabase();
   }
@@ -463,5 +465,58 @@ describe("Queue token business logic", () => {
 
     const mismatchRes = await request(app).get(`/api/public/track/${queueA._id}/${otherQueueToken._id}`);
     expect(mismatchRes.status).toBe(404);
+  });
+
+  test("public join creates a token and returns redirect details", async () => {
+    const token = await createAuthedUser();
+    const queue = await createQueue(token, "Join Queue");
+
+    const joinRes = await request(app).post(`/api/public/join/${queue._id}`).send({ personName: "   Visitor One   " });
+
+    expect(joinRes.status).toBe(201);
+    expect(joinRes.body).toMatchObject({
+      queueId: queue._id.toString(),
+      tokenNumber: 1,
+      status: "waiting",
+      trackUrl: `/track/${queue._id.toString()}/${joinRes.body.tokenId}`,
+    });
+    expect(joinRes.body.tokenId).toBeTruthy();
+  });
+
+  test("public join validates personName and rejects duplicates and capacity limits", async () => {
+    const token = await createAuthedUser();
+    const duplicateQueue = await createQueue(token, "Duplicate Join Queue", 2);
+
+    const invalidRes = await request(app).post(`/api/public/join/${duplicateQueue._id}`).send({ personName: "   " });
+    expect(invalidRes.status).toBe(400);
+
+    const firstJoin = await request(app).post(`/api/public/join/${duplicateQueue._id}`).send({ personName: "Visitor Two" });
+    expect(firstJoin.status).toBe(201);
+
+    const duplicateRes = await request(app).post(`/api/public/join/${duplicateQueue._id}`).send({ personName: "visitor two" });
+    expect(duplicateRes.status).toBe(409);
+    expect(duplicateRes.body.message).toMatch(/already active/i);
+
+    resetPublicRateLimiters();
+
+    const capacityQueue = await createQueue(token, "Capacity Join Queue", 1);
+    const capacityFirst = await request(app).post(`/api/public/join/${capacityQueue._id}`).send({ personName: "Capacity One" });
+    expect(capacityFirst.status).toBe(201);
+
+    const capacityRes = await request(app).post(`/api/public/join/${capacityQueue._id}`).send({ personName: "Capacity Two" });
+    expect(capacityRes.status).toBe(409);
+    expect(capacityRes.body.message).toMatch(/capacity reached/i);
+
+    resetPublicRateLimiters();
+
+    const secondQueue = await createQueue(token, "Rate Limit Queue", 10);
+    for (let i = 0; i < 5; i += 1) {
+      const res = await request(app).post(`/api/public/join/${secondQueue._id}`).send({ personName: `Guest ${i}` });
+      expect(res.status).toBe(201);
+    }
+
+    const rateLimitRes = await request(app).post(`/api/public/join/${secondQueue._id}`).send({ personName: "Guest 5" });
+    expect(rateLimitRes.status).toBe(429);
+    expect(rateLimitRes.body.message).toMatch(/too many join attempts/i);
   });
 });
