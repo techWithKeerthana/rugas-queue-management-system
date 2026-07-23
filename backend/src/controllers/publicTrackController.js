@@ -8,7 +8,7 @@ const getPublicTrackStatus = asyncHandler(async (req, res) => {
   const { queueId, tokenId } = req.params;
 
   const token = await Token.findOne({ _id: tokenId, queueId })
-    .select("_id queueId tokenNumber status position createdAt servedAt completedAt updatedAt")
+    .select("_id queueId tokenNumber status position assignedCounter createdAt servedAt completedAt updatedAt")
     .lean();
 
   if (!token) {
@@ -38,6 +38,7 @@ const getPublicTrackStatus = asyncHandler(async (req, res) => {
       tokenId: token._id.toString(),
       tokenNumber: token.tokenNumber,
       status: token.status,
+      assignedCounter: token.assignedCounter || null,
       positionInQueue,
       estimatedWaitSeconds: waitSeconds,
       lastUpdatedAt: token.updatedAt,

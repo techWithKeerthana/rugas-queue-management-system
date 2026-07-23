@@ -1,5 +1,21 @@
 const mongoose = require("mongoose");
 
+const queueCounterSchema = new mongoose.Schema(
+  {
+    name: {
+      type: String,
+      required: true,
+      trim: true,
+      maxlength: 80,
+    },
+    isActive: {
+      type: Boolean,
+      default: true,
+    },
+  },
+  { _id: true }
+);
+
 const queueSchema = new mongoose.Schema(
   {
     name: {
@@ -31,6 +47,10 @@ const queueSchema = new mongoose.Schema(
     archivedAt: {
       type: Date,
       default: null,
+    },
+    counters: {
+      type: [queueCounterSchema],
+      default: [{ name: "Counter 1", isActive: true }],
     },
   },
   { timestamps: true }
