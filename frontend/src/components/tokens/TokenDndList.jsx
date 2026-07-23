@@ -2,13 +2,17 @@ import { DndContext, PointerSensor, closestCenter, useSensor, useSensors } from 
 import { SortableContext, arrayMove, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import TokenRow from "./TokenRow";
 
-export default function TokenDndList({ tokens, onReorder, onCancel, onUndo, onComplete }) {
+export default function TokenDndList({ tokens, onReorder, onCancel, onUndo, onComplete, disableReorder = false }) {
   const waitingTokens = tokens.filter((token) => token.status === "waiting").sort((a, b) => a.position - b.position);
   const staticTokens = tokens.filter((token) => token.status !== "waiting");
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
   const onDragEnd = (event) => {
+    if (disableReorder) {
+      return;
+    }
+
     const { active, over } = event;
     if (!over || active.id === over.id) {
       return;
@@ -31,7 +35,7 @@ export default function TokenDndList({ tokens, onReorder, onCancel, onUndo, onCo
               onCancel={onCancel}
               onUndo={onUndo}
               onComplete={onComplete}
-              isDragDisabled={false}
+              isDragDisabled={disableReorder}
             />
           ))}
         </SortableContext>

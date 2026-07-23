@@ -10,6 +10,12 @@ body {
   margin: 0;
   min-height: 100vh;
   color: #0f172a;
+  background: #f8fafc;
+}
+
+.dark body {
+  color: #e2e8f0;
+  background: #020617;
 }
 
 #root {
@@ -23,13 +29,29 @@ body {
     linear-gradient(135deg, #f8fafc 0%, #fff7ed 46%, #f0fdfa 100%);
 }
 
+.dark .bg-page-pattern {
+  background:
+    radial-gradient(circle at 15% 20%, rgba(245, 158, 11, 0.12), transparent 32%),
+    radial-gradient(circle at 85% 10%, rgba(20, 184, 166, 0.12), transparent 30%),
+    linear-gradient(135deg, #020617 0%, #111827 46%, #0f172a 100%);
+}
+
 .tab-link {
   border-radius: 0.5rem;
   padding: 0.4rem 0.75rem;
   color: #475569;
 }
 
+.dark .tab-link {
+  color: #cbd5e1;
+}
+
 .tab-link-active {
   background: #0f172a;
   color: #ffffff;
+}
+
+.dark .tab-link-active {
+  background: #f8fafc;
+  color: #0f172a;
 }

@@ -10,6 +10,7 @@ export default function QueuesPage() {
   const [queues, setQueues] = useState([]);
   const [loading, setLoading] = useState(true);
   const [queueName, setQueueName] = useState("");
+  const [capacity, setCapacity] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(null);
 
   const fetchQueues = async () => {
@@ -34,9 +35,13 @@ export default function QueuesPage() {
     }
 
     try {
-      await createQueueRequest({ name: queueName.trim() });
+      await createQueueRequest({
+        name: queueName.trim(),
+        capacity: capacity ? Number(capacity) : null,
+      });
       toast.success("Queue created");
       setQueueName("");
+      setCapacity("");
       fetchQueues();
     } catch (error) {
       toast.error(error.response?.data?.message || "Failed to create queue");
@@ -60,14 +65,22 @@ export default function QueuesPage() {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="text-2xl font-black text-slate-900">Your Queues</h2>
-        <form onSubmit={createQueue} className="mt-4 flex flex-col gap-3 sm:flex-row">
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <h2 className="text-2xl font-black text-slate-900 dark:text-slate-100">Your Queues</h2>
+        <form onSubmit={createQueue} className="mt-4 grid gap-3 sm:grid-cols-[1fr_160px_auto]">
           <input
             value={queueName}
             onChange={(event) => setQueueName(event.target.value)}
             placeholder="Create a queue name"
-            className="w-full rounded-lg border border-slate-300 px-3 py-2"
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+          />
+          <input
+            type="number"
+            min="1"
+            value={capacity}
+            onChange={(event) => setCapacity(event.target.value)}
+            placeholder="Capacity"
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
           />
           <button className="rounded-lg bg-amber-500 px-4 py-2 font-semibold text-slate-900">Create Queue</button>
         </form>
