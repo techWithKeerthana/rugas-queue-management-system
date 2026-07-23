@@ -27,7 +27,7 @@ QueueFlow demonstrates how to build a full-stack, real-time SaaS workflow: authe
 
 ## Live Demo
 
-- Frontend (Vercel): https://frontend-sand-two-jsq0xwws5z.vercel.app
+- Frontend (Vercel): https://queueflow.vercel.app
 - Backend (Render): https://queueflow-backend-fk17.onrender.com
 - Repository: https://github.com/techWithKeerthana/rugas-queue-management-system
 

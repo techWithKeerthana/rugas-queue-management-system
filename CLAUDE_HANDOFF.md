@@ -14,6 +14,17 @@ It captures the current project state, architecture, APIs, test coverage, deploy
   - Motion: subtle fade-up entry and 150-300ms hover/focus transitions
   - Theme parity: token variables for both light/dark modes preserved with existing ThemeContext toggle
 
+## UI Redesign Pass 2 (Local Review, Not Deployed)
+
+- Trigger for pass 2: the first redesign read as too subtle and too close to generic Tailwind dashboard patterns.
+- Scope remains frontend-only visual/UX polish; no backend, API, or business-rule changes.
+- Direction updates in this pass:
+  - Stronger visual contrast and saturation for primary brand accents and CTA gradients.
+  - Clearer type hierarchy with distinct hero/page/section heading scales and stronger emphasis for page-primary actions.
+  - More deliberate section separation using signature card treatments, divider rhythm, and staggered content reveals.
+  - Custom chart styling (series gradients, typographic axis/legend treatment, bespoke tooltip component) and a signature analytics hero stat treatment.
+  - Richer motion system (staggered section entrances, scale/lift press states, token row status flash accents) while retaining dark/light parity.
+
 ## 1) Project Summary
 
 - Project: full-stack Queue Management System
@@ -287,7 +298,7 @@ Base backend URL (prod): https://queueflow-backend-fk17.onrender.com
 
 ## 7) Live Deployment URLs
 
-- Frontend (Vercel): https://frontend-sand-two-jsq0xwws5z.vercel.app
+- Frontend (Vercel): https://queueflow.vercel.app
 - Backend (Render): https://queueflow-backend-fk17.onrender.com
 - GitHub repo: https://github.com/techWithKeerthana/rugas-queue-management-system
 - Status: URLs unchanged and still accurate after merging multi-counter into master.
@@ -307,6 +318,16 @@ Base backend URL (prod): https://queueflow-backend-fk17.onrender.com
 ### Frontend
 - VITE_API_URL
 - VITE_SOCKET_URL
+
+### Frontend Production Values (Vercel -> Settings -> Environment Variables -> Production)
+- VITE_API_URL=https://queueflow-backend-fk17.onrender.com/api
+- VITE_SOCKET_URL=https://queueflow-backend-fk17.onrender.com
+
+### Backend Production CORS Value (Render -> Environment)
+- FRONTEND_ORIGIN must include the exact production frontend origin.
+- Current origin in docs: https://queueflow.vercel.app
+- If frontend URL changes (renamed Vercel project subdomain or custom domain), update FRONTEND_ORIGIN to that exact new origin.
+- Multiple allowed origins can be comma-separated during migration/cutover.
 
 ## 9) Test Status and Coverage
 
