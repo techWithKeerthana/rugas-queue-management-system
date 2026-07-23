@@ -7,12 +7,14 @@ import QueuesPage from "./pages/QueuesPage";
 import QueueDetailPage from "./pages/QueueDetailPage";
 import AnalyticsPage from "./pages/AnalyticsPage";
 import ActivityLogsPage from "./pages/ActivityLogsPage";
+import TrackTokenPage from "./pages/TrackTokenPage";
 
 function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
+      <Route path="/track/:queueId/:tokenId" element={<TrackTokenPage />} />
 
       <Route
         path="/queues"

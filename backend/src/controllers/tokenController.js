@@ -4,7 +4,7 @@ const httpError = require("../utils/httpError");
 const { nextTokenNumber } = require("../utils/tokenNumber");
 const { TOKEN_STATUS, TOKEN_PRIORITY, PRIORITY_WEIGHT } = require("../utils/constants");
 const { getOwnedQueue, assertQueueMutable } = require("./queueController");
-const { safeEmitToQueue } = require("../config/socket");
+const { safeEmitToQueue, safeEmitPublicTrackInvalidation } = require("../config/socket");
 const { calculateAverageServiceSeconds, estimatedWaitSeconds } = require("../utils/queueMath");
 const { logActivity } = require("../services/activityLogService");
 
@@ -150,6 +150,7 @@ const addToken = asyncHandler(async (req, res) => {
   });
 
   safeEmitToQueue(queue._id.toString(), "token:added", { queueId: queue._id.toString(), tokenId: token._id.toString() });
+  safeEmitPublicTrackInvalidation(queue._id.toString());
 
   await logActivity({
     managerId: req.user.id,
@@ -198,6 +199,7 @@ const reorderTokens = asyncHandler(async (req, res) => {
   }
 
   safeEmitToQueue(queue._id.toString(), "token:reordered", { queueId: queue._id.toString() });
+  safeEmitPublicTrackInvalidation(queue._id.toString());
 
   await logActivity({
     managerId: req.user.id,
@@ -240,6 +242,7 @@ const serveTopToken = asyncHandler(async (req, res) => {
   await renumberWaitingPositions(queue._id);
   safeEmitToQueue(queue._id.toString(), "token:served", { queueId: queue._id.toString(), tokenId: top._id.toString() });
   safeEmitToQueue(queue._id.toString(), "token:statusChanged", { action: "serve", queueId: queue._id.toString(), tokenId: top._id.toString() });
+  safeEmitPublicTrackInvalidation(queue._id.toString());
 
   await logActivity({
     managerId: req.user.id,
@@ -278,6 +281,7 @@ const completeToken = asyncHandler(async (req, res) => {
   await token.save();
 
   safeEmitToQueue(queue._id.toString(), "token:statusChanged", { action: "complete", queueId: queue._id.toString(), tokenId: token._id.toString() });
+  safeEmitPublicTrackInvalidation(queue._id.toString());
 
   await logActivity({
     managerId: req.user.id,
@@ -321,6 +325,7 @@ const cancelToken = asyncHandler(async (req, res) => {
 
   safeEmitToQueue(queue._id.toString(), "token:cancelled", { queueId: queue._id.toString(), tokenId: token._id.toString() });
   safeEmitToQueue(queue._id.toString(), "token:statusChanged", { action: "cancel", queueId: queue._id.toString(), tokenId: token._id.toString() });
+  safeEmitPublicTrackInvalidation(queue._id.toString());
 
   await logActivity({
     managerId: req.user.id,
@@ -357,6 +362,7 @@ const undoTokenAction = asyncHandler(async (req, res) => {
 
   await renumberWaitingPositions(queue._id);
   safeEmitToQueue(queue._id.toString(), "token:undone", { queueId: queue._id.toString(), tokenId: token._id.toString() });
+  safeEmitPublicTrackInvalidation(queue._id.toString());
 
   await logActivity({
     managerId: req.user.id,

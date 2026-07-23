@@ -60,13 +60,28 @@ This document is a complete project handoff so a new AI assistant can continue w
   - Activity logs API with pagination
   - Frontend Activity page
 
+### Public Customer Tracking (Complete and tested)
+- Public no-login token status page
+- Backend endpoint: `GET /api/public/track/:queueId/:tokenId`
+- Frontend page: `/track/:queueId/:tokenId`
+- Returns customer-safe fields only:
+  - token number
+  - status
+  - current queue position
+  - estimated wait time
+  - last updated timestamp
+- Reuses existing token ordering and queue wait-time logic
+- Public endpoint is rate-limited
+- Real-time refresh uses a restricted public Socket.io subscription that only receives invalidation events, not token payloads
+
 ## 3) Current Key Files and Responsibilities
 
 ### Backend Core
-- `backend/src/app.js`: app wiring + protected routes
-- `backend/src/server.js`: server bootstrap + Socket.io + env validation
+- `backend/src/app.js`: app wiring + protected routes + public tracking route
+- `backend/src/server.js`: server bootstrap + Socket.io + env validation + restricted public track socket mode
 - `backend/src/config/env.js`: required env vars validation
 - `backend/src/config/db.js`: mongoose connect/disconnect
+- `backend/src/config/socket.js`: manager queue emits + public tracking invalidation emits
 
 ### Backend Models
 - `backend/src/models/User.js`
@@ -91,6 +106,8 @@ This document is a complete project handoff so a new AI assistant can continue w
   - AI insights endpoint (cache + refresh + graceful fallback)
 - `backend/src/controllers/activityLogController.js`
   - paginated logs listing
+- `backend/src/controllers/publicTrackController.js`
+  - public customer-safe token tracking payload
 
 ### Backend Services
 - `backend/src/services/aiInsightsService.js`
@@ -101,6 +118,7 @@ This document is a complete project handoff so a new AI assistant can continue w
 
 ### Backend Routes
 - `backend/src/routes/authRoutes.js`
+- `backend/src/routes/publicTrackRoutes.js`
 - `backend/src/routes/queueRoutes.js`
 - `backend/src/routes/tokenRoutes.js`
 - `backend/src/routes/analyticsRoutes.js`
@@ -109,6 +127,7 @@ This document is a complete project handoff so a new AI assistant can continue w
 ### Frontend Pages
 - `frontend/src/pages/LoginPage.jsx`
 - `frontend/src/pages/RegisterPage.jsx`
+- `frontend/src/pages/TrackTokenPage.jsx`
 - `frontend/src/pages/QueuesPage.jsx`
   - active/archived/all filters
   - create queue with optional capacity
@@ -135,6 +154,7 @@ This document is a complete project handoff so a new AI assistant can continue w
 - `frontend/src/context/AuthContext.jsx`
 - `frontend/src/context/ThemeContext.jsx`
 - `frontend/src/components/layout/AppShell.jsx`
+- `frontend/src/hooks/usePublicTrackSocket.js`
 
 ## 4) Environment Setup
 
@@ -226,6 +246,9 @@ Build frontend:
 ### Activity Logs
 - `GET /api/activity-logs?page=&pageSize=`
 
+### Public Tracking
+- `GET /api/public/track/:queueId/:tokenId`
+
 ## 7) Real-time Events
 
 Emitted server-side and consumed by frontend:
@@ -236,9 +259,16 @@ Emitted server-side and consumed by frontend:
 - `token:statusChanged`
 - `token:undone`
 
+Restricted public socket behavior:
+- Public tracking clients connect in a dedicated unauthenticated `public-track` mode
+- Server validates the `queueId` + `tokenId` pair before allowing the socket to join
+- Public clients join `public:queue:<queueId>` only
+- Public clients receive `public:track:invalidate` only
+- Public clients do not receive manager-room token event payloads
+
 ## 8) Tests Status
 
-- Backend tests are passing.
+- Backend tests are passing (13 tests).
 - Test file: `backend/tests/api.test.js`
 - Includes coverage for:
   - priority ordering
@@ -253,6 +283,8 @@ Emitted server-side and consumed by frontend:
   - activity logs listing
   - AI insights failure fallback
   - AI insights slow-call timeout fallback
+  - public tracking safe-field response
+  - public tracking queue/token mismatch 404 behavior
 
 ## 9) Recent Commit History (key milestones)
 
@@ -282,9 +314,13 @@ Emitted server-side and consumed by frontend:
 4. Security note
 - Rotate Gemini key if exposed in logs/chats/history.
 
+5. Public tracking endpoint note
+- `GET /api/public/track/:queueId/:tokenId` is intentionally unauthenticated and protected with basic rate limiting (`express-rate-limit`)
+- Public Socket.io tracking is invalidation-only and should stay payload-minimal
+
 ## 11) Current Goal State
 
-- Tier 1, Tier 2, Tier 3 implemented and tested.
+- Tier 1, Tier 2, Tier 3, and public customer tracking implemented and tested.
 - User requested this handoff to continue conversation in a new Claude chat without re-explaining context.
 
 If you are the next assistant: start by reading this file, then run tests and build once, and proceed only with user-requested follow-ups.

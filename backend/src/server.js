@@ -7,6 +7,7 @@ const createApp = require("./app");
 const { connectDB } = require("./config/db");
 const { validateEnv } = require("./config/env");
 const { setIo } = require("./config/socket");
+const Token = require("./models/Token");
 
 const PORT = process.env.PORT || 5000;
 
@@ -38,8 +39,29 @@ async function bootstrap() {
     },
   });
 
-  io.use((socket, next) => {
+  io.use(async (socket, next) => {
     try {
+      const mode = socket.handshake.auth?.mode;
+      if (mode === "public-track") {
+        const queueId = socket.handshake.auth?.queueId;
+        const tokenId = socket.handshake.auth?.tokenId;
+
+        if (!queueId || !tokenId) {
+          return next(new Error("Unauthorized"));
+        }
+
+        const token = await Token.findOne({ _id: tokenId, queueId }).select("_id queueId").lean();
+        if (!token) {
+          return next(new Error("Unauthorized"));
+        }
+
+        socket.publicTrack = {
+          queueId: queueId.toString(),
+          tokenId: tokenId.toString(),
+        };
+        return next();
+      }
+
       const token = socket.handshake.auth?.token;
       if (!token) {
         return next(new Error("Unauthorized"));
@@ -54,6 +76,11 @@ async function bootstrap() {
   });
 
   io.on("connection", (socket) => {
+    if (socket.publicTrack?.queueId) {
+      socket.join(`public:queue:${socket.publicTrack.queueId}`);
+      return;
+    }
+
     socket.on("queue:join", (queueId) => {
       socket.join(`queue:${queueId}`);
     });

@@ -4,6 +4,7 @@ const helmet = require("helmet");
 const morgan = require("morgan");
 
 const authRoutes = require("./routes/authRoutes");
+const publicTrackRoutes = require("./routes/publicTrackRoutes");
 const queueRoutes = require("./routes/queueRoutes");
 const tokenRoutes = require("./routes/tokenRoutes");
 const analyticsRoutes = require("./routes/analyticsRoutes");
@@ -52,6 +53,7 @@ function createApp() {
   });
 
   app.use("/api/auth", authRoutes);
+  app.use("/api/public", publicTrackRoutes);
   app.use("/api/queues", protect, queueRoutes);
   app.use("/api/queues/:queueId/tokens", protect, tokenRoutes);
   app.use("/api/queues/:queueId/analytics", protect, analyticsRoutes);

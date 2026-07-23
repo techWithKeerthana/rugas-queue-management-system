@@ -4,6 +4,7 @@ const mongoose = require("mongoose");
 
 jest.mock("../src/config/socket", () => ({
   safeEmitToQueue: jest.fn(),
+  safeEmitPublicTrackInvalidation: jest.fn(),
 }));
 
 jest.mock("../src/services/aiInsightsService", () => ({
@@ -428,5 +429,39 @@ describe("Queue token business logic", () => {
     expect(insightRes.body.available).toBe(false);
     expect(insightRes.body.insightText).toMatch(/temporarily unavailable/i);
     delete process.env.INSIGHTS_TIMEOUT_MS;
+  });
+
+  test("public track endpoint returns safe fields and 404 for invalid queue/token combo", async () => {
+    const token = await createAuthedUser();
+    const queueA = await createQueue(token, "Public A");
+    const queueB = await createQueue(token, "Public B");
+
+    const aState = await addToken(token, queueA._id, "Tracked Person", "normal");
+    await addToken(token, queueA._id, "Other Person", "normal");
+    const bState = await addToken(token, queueB._id, "Other Queue Person", "normal");
+
+    const trackedToken = aState.tokens.find((item) => item.personName === "Tracked Person");
+    const otherQueueToken = bState.tokens.find((item) => item.personName === "Other Queue Person");
+
+    const publicRes = await request(app).get(`/api/public/track/${queueA._id}/${trackedToken._id}`);
+
+    expect(publicRes.status).toBe(200);
+    expect(publicRes.body).toHaveProperty("tracking");
+    expect(publicRes.body).not.toHaveProperty("tokens");
+    expect(publicRes.body.tracking).toMatchObject({
+      queueId: queueA._id.toString(),
+      tokenId: trackedToken._id,
+      tokenNumber: trackedToken.tokenNumber,
+      status: trackedToken.status,
+    });
+    expect(publicRes.body.tracking).toHaveProperty("positionInQueue");
+    expect(publicRes.body.tracking).toHaveProperty("estimatedWaitSeconds");
+    expect(publicRes.body.tracking).toHaveProperty("lastUpdatedAt");
+    expect(publicRes.body.tracking).not.toHaveProperty("personName");
+    expect(publicRes.text).not.toContain("Other Person");
+    expect(publicRes.text).not.toContain("Other Queue Person");
+
+    const mismatchRes = await request(app).get(`/api/public/track/${queueA._id}/${otherQueueToken._id}`);
+    expect(mismatchRes.status).toBe(404);
   });
 });

@@ -8,3 +8,4 @@ export const completeTokenRequest = (queueId, tokenId) =>
   api.patch(`/queues/${queueId}/tokens/${tokenId}/complete`);
 export const cancelTokenRequest = (queueId, tokenId) => api.patch(`/queues/${queueId}/tokens/${tokenId}/cancel`);
 export const undoTokenRequest = (queueId, tokenId) => api.patch(`/queues/${queueId}/tokens/${tokenId}/undo`);
+export const getPublicTrackRequest = (queueId, tokenId) => api.get(`/public/track/${queueId}/${tokenId}`);
