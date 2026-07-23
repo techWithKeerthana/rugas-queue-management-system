@@ -7,6 +7,10 @@ const { getOwnedQueue } = require("./queueController");
 const { safeEmitToQueue } = require("../config/socket");
 const { calculateAverageServiceSeconds, estimatedWaitSeconds } = require("../utils/queueMath");
 
+function escapeRegex(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 async function renumberWaitingPositions(queueId) {
   const waiting = await Token.find({ queueId, status: TOKEN_STATUS.WAITING }).sort({ position: 1, createdAt: 1 });
   for (let i = 0; i < waiting.length; i += 1) {
@@ -26,12 +30,30 @@ function insertPositionForPriority(waitingTokens, priorityWeight) {
   return insertAt;
 }
 
-async function buildTokenResponse(queueId) {
+async function buildTokenResponse(queueId, options = {}) {
+  const { search = "", page = null, pageSize = null } = options;
   const tokens = await Token.find({ queueId }).sort({ position: 1, createdAt: 1 }).lean();
+  let filtered = tokens;
+
+  if (search) {
+    const raw = search.trim();
+    const regex = new RegExp(escapeRegex(raw), "i");
+    const isNumeric = /^\d+$/.test(raw);
+    filtered = tokens.filter((token) => {
+      if (regex.test(token.personName)) {
+        return true;
+      }
+      if (isNumeric && token.tokenNumber === Number(raw)) {
+        return true;
+      }
+      return token._id.toString() === raw;
+    });
+  }
+
   const waiting = tokens.filter((t) => t.status === TOKEN_STATUS.WAITING);
   const avgServiceSeconds = calculateAverageServiceSeconds(tokens);
 
-  const withEstimates = tokens.map((token) => ({
+  const withEstimates = filtered.map((token) => ({
     ...token,
     estimatedWaitSeconds:
       token.status === TOKEN_STATUS.WAITING
@@ -39,15 +61,35 @@ async function buildTokenResponse(queueId) {
         : 0,
   }));
 
+  const total = withEstimates.length;
+  const shouldPaginate = page && pageSize;
+  const safePage = shouldPaginate ? Math.max(1, Number(page)) : 1;
+  const safeSize = shouldPaginate ? Math.max(1, Number(pageSize)) : withEstimates.length || 1;
+  const start = shouldPaginate ? (safePage - 1) * safeSize : 0;
+  const pagedTokens = shouldPaginate ? withEstimates.slice(start, start + safeSize) : withEstimates;
+
   return {
-    tokens: withEstimates,
+    tokens: pagedTokens,
     avgServiceSeconds,
+    pagination: {
+      page: safePage,
+      pageSize: safeSize,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / safeSize)),
+      hasNextPage: safePage * safeSize < total,
+      hasPreviousPage: safePage > 1,
+    },
+    search: search || null,
   };
 }
 
 const listTokens = asyncHandler(async (req, res) => {
   const queue = await getOwnedQueue(req.params.queueId, req.user.id);
-  const payload = await buildTokenResponse(queue._id);
+  const payload = await buildTokenResponse(queue._id, {
+    search: req.query.search,
+    page: req.query.page,
+    pageSize: req.query.pageSize,
+  });
   res.json(payload);
 });
 
@@ -55,6 +97,28 @@ const addToken = asyncHandler(async (req, res) => {
   const queue = await getOwnedQueue(req.params.queueId, req.user.id);
   const priority = req.body.priority || TOKEN_PRIORITY.NORMAL;
   const priorityWeight = PRIORITY_WEIGHT[priority];
+  const personName = req.body.personName.trim();
+
+  if (queue.capacity) {
+    const activeCount = await Token.countDocuments({
+      queueId: queue._id,
+      status: { $in: [TOKEN_STATUS.WAITING, TOKEN_STATUS.SERVING] },
+    });
+
+    if (activeCount >= queue.capacity) {
+      throw httpError(409, `Queue capacity reached (${queue.capacity})`);
+    }
+  }
+
+  const existingActive = await Token.findOne({
+    queueId: queue._id,
+    status: { $in: [TOKEN_STATUS.WAITING, TOKEN_STATUS.SERVING] },
+    personName: { $regex: new RegExp(`^${escapeRegex(personName)}$`, "i") },
+  }).lean();
+
+  if (existingActive) {
+    throw httpError(409, "A token with this person name is already active in the queue");
+  }
 
   const waitingTokens = await Token.find({ queueId: queue._id, status: TOKEN_STATUS.WAITING })
     .sort({ position: 1, createdAt: 1 })
@@ -76,7 +140,7 @@ const addToken = asyncHandler(async (req, res) => {
     queueId: queue._id,
     managerId: req.user.id,
     tokenNumber,
-    personName: req.body.personName.trim(),
+    personName,
     priority,
     priorityWeight,
     position: insertAt + 1,

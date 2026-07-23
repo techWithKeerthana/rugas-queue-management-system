@@ -27,11 +27,11 @@ async function createAuthedUser() {
   return registerRes.body.token;
 }
 
-async function createQueue(token, name = "Main Queue") {
+async function createQueue(token, name = "Main Queue", capacity = null) {
   const res = await request(app)
     .post("/api/queues")
     .set("Authorization", `Bearer ${token}`)
-    .send({ name });
+    .send({ name, capacity });
 
   return res.body.queue;
 }
@@ -218,5 +218,127 @@ describe("Queue token business logic", () => {
     expect(eventNames).toEqual(
       expect.arrayContaining(["token:added", "token:reordered", "token:served", "token:cancelled"])
     );
+  });
+
+  test("duplicate active token names are blocked when adding token", async () => {
+    const token = await createAuthedUser();
+    const queue = await createQueue(token, "Duplicate Queue");
+
+    await addToken(token, queue._id, "Aarav", "normal");
+    const duplicateRes = await request(app)
+      .post(`/api/queues/${queue._id}/tokens`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ personName: "aarav", priority: "vip" });
+
+    expect(duplicateRes.status).toBe(409);
+    expect(duplicateRes.body.message).toMatch(/already active/i);
+  });
+
+  test("queue capacity blocks adding new active tokens once full", async () => {
+    const token = await createAuthedUser();
+    const queue = await createQueue(token, "Capacity Queue", 2);
+
+    await addToken(token, queue._id, "One", "normal");
+    await addToken(token, queue._id, "Two", "normal");
+
+    const overCapRes = await request(app)
+      .post(`/api/queues/${queue._id}/tokens`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ personName: "Three", priority: "normal" });
+
+    expect(overCapRes.status).toBe(409);
+    expect(overCapRes.body.message).toMatch(/capacity reached/i);
+  });
+
+  test("token search and pagination return expected filtered and paged results", async () => {
+    const token = await createAuthedUser();
+    const queue = await createQueue(token, "Search Queue");
+
+    await addToken(token, queue._id, "Nisha", "normal");
+    await addToken(token, queue._id, "Nikhil", "normal");
+    await addToken(token, queue._id, "Rahul", "normal");
+
+    const pageRes = await request(app)
+      .get(`/api/queues/${queue._id}/tokens?page=2&pageSize=1`)
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(pageRes.status).toBe(200);
+    expect(pageRes.body.tokens).toHaveLength(1);
+    expect(pageRes.body.pagination.total).toBe(3);
+    expect(pageRes.body.pagination.totalPages).toBe(3);
+    expect(pageRes.body.pagination.page).toBe(2);
+
+    const searchRes = await request(app)
+      .get(`/api/queues/${queue._id}/tokens?search=nik`)
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(searchRes.status).toBe(200);
+    expect(searchRes.body.tokens).toHaveLength(1);
+    expect(searchRes.body.tokens[0].personName).toBe("Nikhil");
+  });
+
+  test("daily/weekly/monthly reports and CSV/PDF exports return valid output", async () => {
+    const token = await createAuthedUser();
+    const queue = await createQueue(token, "Reports Queue");
+
+    await Token.insertMany([
+      {
+        queueId: queue._id,
+        managerId: queue.managerId,
+        tokenNumber: 1,
+        personName: "Day One",
+        priority: "normal",
+        priorityWeight: 0,
+        position: 1,
+        status: "completed",
+        createdAt: new Date("2026-01-01T10:00:00.000Z"),
+        servedAt: new Date("2026-01-01T10:05:00.000Z"),
+        completedAt: new Date("2026-01-01T10:10:00.000Z"),
+      },
+      {
+        queueId: queue._id,
+        managerId: queue.managerId,
+        tokenNumber: 2,
+        personName: "Day Two",
+        priority: "normal",
+        priorityWeight: 0,
+        position: 2,
+        status: "cancelled",
+        createdAt: new Date("2026-01-09T10:00:00.000Z"),
+        cancelledAt: new Date("2026-01-09T10:07:00.000Z"),
+      },
+    ]);
+
+    const dailyRes = await request(app)
+      .get(`/api/queues/${queue._id}/analytics/reports?period=daily`)
+      .set("Authorization", `Bearer ${token}`);
+    expect(dailyRes.status).toBe(200);
+    expect(dailyRes.body.period).toBe("daily");
+    expect(dailyRes.body.rows.length).toBe(2);
+
+    const weeklyRes = await request(app)
+      .get(`/api/queues/${queue._id}/analytics/reports?period=weekly`)
+      .set("Authorization", `Bearer ${token}`);
+    expect(weeklyRes.status).toBe(200);
+    expect(weeklyRes.body.period).toBe("weekly");
+
+    const monthlyRes = await request(app)
+      .get(`/api/queues/${queue._id}/analytics/reports?period=monthly`)
+      .set("Authorization", `Bearer ${token}`);
+    expect(monthlyRes.status).toBe(200);
+    expect(monthlyRes.body.period).toBe("monthly");
+
+    const csvRes = await request(app)
+      .get(`/api/queues/${queue._id}/analytics/reports/export.csv?period=daily`)
+      .set("Authorization", `Bearer ${token}`);
+    expect(csvRes.status).toBe(200);
+    expect(csvRes.headers["content-type"]).toContain("text/csv");
+    expect(csvRes.text).toContain("period_start");
+
+    const pdfRes = await request(app)
+      .get(`/api/queues/${queue._id}/analytics/reports/export.pdf?period=daily`)
+      .set("Authorization", `Bearer ${token}`);
+    expect(pdfRes.status).toBe(200);
+    expect(pdfRes.headers["content-type"]).toContain("application/pdf");
   });
 });

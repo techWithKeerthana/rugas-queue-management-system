@@ -8,7 +8,7 @@ function normalizeQueueName(name) {
 }
 
 const createQueue = asyncHandler(async (req, res) => {
-  const { name } = req.body;
+  const { name, capacity } = req.body;
   const nameNormalized = normalizeQueueName(name);
 
   const existing = await Queue.findOne({
@@ -23,6 +23,7 @@ const createQueue = asyncHandler(async (req, res) => {
     name: name.trim(),
     nameNormalized,
     managerId: req.user.id,
+    capacity: capacity ?? null,
   });
 
   res.status(201).json({ queue });

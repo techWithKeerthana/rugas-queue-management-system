@@ -18,6 +18,11 @@ const queueSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    capacity: {
+      type: Number,
+      min: 1,
+      default: null,
+    },
   },
   { timestamps: true }
 );
