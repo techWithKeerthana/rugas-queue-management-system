@@ -3,6 +3,11 @@ import { io } from "socket.io-client";
 
 export function useSocket({ token, queueId, onEvent }) {
   const socketRef = useRef(null);
+  const onEventRef = useRef(onEvent);
+
+  useEffect(() => {
+    onEventRef.current = onEvent;
+  }, [onEvent]);
 
   useEffect(() => {
     if (!token) {
@@ -19,7 +24,7 @@ export function useSocket({ token, queueId, onEvent }) {
     const events = ["token:added", "token:reordered", "token:served", "token:cancelled", "token:statusChanged", "token:undone"];
     events.forEach((eventName) => {
       socket.on(eventName, (payload) => {
-        onEvent?.(eventName, payload);
+        onEventRef.current?.(eventName, payload);
       });
     });
 
@@ -34,7 +39,7 @@ export function useSocket({ token, queueId, onEvent }) {
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [token, queueId, onEvent]);
+  }, [token, queueId]);
 
   return socketRef;
 }

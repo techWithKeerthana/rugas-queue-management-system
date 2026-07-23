@@ -1,228 +1,184 @@
-# Queue Management System (Tier 1)
+# Queue Management System
 
-Full-stack Queue Management application built for the Rugas internship assignment.
+Full-stack queue management app for manager workflows and customer queue tracking.
 
-## Implemented Scope
+## Live URLs
 
-### Tier 1 Features Included
-- JWT auth with register, login, logout, and protected routes
-- Password hashing with bcrypt
-- Multiple queues per manager with unique queue names per manager
-- Token creation with auto-increment token number per queue
+- Frontend: https://frontend-sand-two-jsq0xwws5z.vercel.app
+- Backend: https://queueflow-backend-fk17.onrender.com
+- GitHub: https://github.com/techWithKeerthana/rugas-queue-management-system
+
+## Architecture
+
+```mermaid
+flowchart LR
+  U[Manager / Customer Browser] -->|HTTP + Socket.io| V[Vercel Frontend\nReact + Vite]
+  V -->|REST API| R[Render Backend\nExpress + Socket.io]
+  R -->|Mongoose| M[(MongoDB Atlas)]
+  R -->|Socket.io room events| V
+  R -->|Gemini API| G[Google Gemini\nAI insights]
+```
+
+## Features by Tier
+
+### Tier 1
+- JWT auth: register, login, logout, me
+- Manager-scoped queues with unique names
 - Token lifecycle: waiting, serving, completed, cancelled
-- Live estimated wait time per waiting token
-- Live service timer for currently serving token
-- Drag-and-drop reordering for waiting tokens
-- Serve top token, cancel token, complete token
-- One-step undo for serve/cancel/complete actions
-- Priority support: normal, senior, vip, emergency (auto-prioritized)
-- Real-time sync via Socket.io events
-- Analytics dashboard:
-  - KPI cards (total/waiting/serving/completed/cancelled)
-  - average wait time
-  - average service time
-  - longest waiting token
-  - queue length trend chart
-  - status distribution chart
-  - hourly peak traffic chart
-- UI polish:
-  - responsive layout
-  - toasts
-  - loading skeletons
-  - empty states
-  - confirmation dialogs before destructive actions
+- Priority insertion: emergency, vip, senior, normal
+- Drag-and-drop reorder for waiting tokens
+- Serve top, cancel, complete, undo
+- Estimated wait time and live serving timer
+- Real-time sync via Socket.io
+- Analytics dashboard KPIs and charts
+- Seed script and basic app setup
 
-## Tech Stack
-- Frontend: React + Tailwind CSS + Recharts + dnd-kit + Socket.io client
-- Backend: Node.js + Express + Mongoose + JWT + bcrypt + Socket.io
-- Database: MongoDB
-- Testing: Jest + Supertest + mongodb-memory-server-core
+### Tier 2
+- Token search by token number, token id, or person name
+- Token pagination
+- Duplicate active-token detection
+- Queue capacity enforcement
+- Daily, weekly, monthly report endpoints
+- CSV and PDF export
+- Dark/light theme toggle
+- Profile dropdown with manager info and logout
 
-## Project Structure
+### Tier 3
+- Gemini-backed AI queue insights
+- Insight caching with refresh and timeout fallback
+- Queue archive and unarchive
+- Active, archived, and all queue filtering
+- Archived queue mutability guard
+- Activity logs with pagination
+- Activity logs page
 
-- frontend: React app
-- backend: Express API + Socket.io + Mongoose models
-- root scripts: convenience commands for running both apps
+### Public tracking
+- Public no-login tracking route: `/track/:queueId/:tokenId`
+- Public endpoint: `GET /api/public/track/:queueId/:tokenId`
+- Customer-safe fields only
+- Rate-limited public access
+- Restricted Socket.io invalidation-only refresh path
 
-## Environment Variables
+## Screenshots
 
-### backend/.env
-Copy from backend/.env.example:
+All screenshots were taken from the deployed app.
 
-- PORT=5000
-- MONGO_URI=mongodb://127.0.0.1:27017/queue_management
-- JWT_SECRET=change_this_secret
-- JWT_EXPIRES_IN=1d
-- FRONTEND_ORIGIN=http://localhost:5173
+- Login: [docs/screenshots/login.png](docs/screenshots/login.png)
+- Queue dashboard: [docs/screenshots/queue-dashboard.png](docs/screenshots/queue-dashboard.png)
+- Analytics: [docs/screenshots/analytics.png](docs/screenshots/analytics.png)
+- Public tracking: [docs/screenshots/public-track.png](docs/screenshots/public-track.png)
 
-### frontend/.env
-Copy from frontend/.env.example:
+## Setup
 
-- VITE_API_URL=http://localhost:5000/api
-- VITE_SOCKET_URL=http://localhost:5000
-
-## Install
-
-From repo root:
+Clone the repo, then install dependencies:
 
 ```bash
 npm install
+cd backend
+npm install
+cd ../frontend
+npm install
 ```
+
+### Required environment variables
 
 Backend:
-
-```bash
-cd backend
-npm install
-```
+- `PORT`
+- `MONGO_URI`
+- `JWT_SECRET`
+- `JWT_EXPIRES_IN`
+- `FRONTEND_ORIGIN`
+- `GEMINI_API_KEY`
+- `GEMINI_MODEL`
+- `INSIGHTS_TIMEOUT_MS`
 
 Frontend:
+- `VITE_API_URL`
+- `VITE_SOCKET_URL`
 
-```bash
-cd frontend
-npm install
-```
+Copy the example files and fill in your local values:
+- `backend/.env.example`
+- `frontend/.env.example`
+- `frontend/.env.production.example`
 
-## Run (Development)
+## Run
 
-### Option 1: run both from root
+Development from repo root:
 
 ```bash
 npm run dev
 ```
 
-### Option 2: run separately
-
-Terminal 1:
+Backend only:
 
 ```bash
-cd backend
-npm run dev
+npm run dev --prefix backend
 ```
 
-Terminal 2:
+Frontend only:
 
 ```bash
-cd frontend
-npm run dev
+npm run dev --prefix frontend
 ```
 
-Frontend default URL: http://localhost:5173  
-Backend default URL: http://localhost:5000
-
-## Seed Demo Data
-
-1. Ensure MongoDB is running and backend env is configured.
-2. Run:
-
-```bash
-cd backend
-npm run seed
-```
-
-Seed creates a demo manager:
-- Email: manager@queueflow.dev
-- Password: Password123
-
-## Tests
-
-Run backend business logic tests:
+Tests:
 
 ```bash
 cd backend
 npm test
 ```
 
-Tests verify:
-- priority queue ordering logic
-- serve/cancel/undo state and timestamp transitions
-- drag-and-drop reorder persistence
-- socket event firing for add/reorder/serve/cancel
+Frontend build:
 
-## API Overview
+```bash
+cd frontend
+npm run build
+```
+
+## Known Limitations
+
+- Render free tier cold starts can make the first request slower.
+- MongoDB Atlas SRV DNS lookups can fail on some Windows/network setups; a non-SRV URI may be needed locally.
+- AI insights depend on Gemini availability and can fall back to a friendly unavailable state.
+- Public tracking is intentionally read-only and rate-limited.
+
+## API Snapshot
 
 ### Auth
-- POST /api/auth/register
-- POST /api/auth/login
-- POST /api/auth/logout
-- GET /api/auth/me
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+- `POST /api/auth/logout`
+- `GET /api/auth/me`
 
 ### Queues
-- POST /api/queues
-- GET /api/queues
-- GET /api/queues/:queueId
-- DELETE /api/queues/:queueId
+- `POST /api/queues`
+- `GET /api/queues?status=active|archived|all`
+- `GET /api/queues/:queueId`
+- `PATCH /api/queues/:queueId/archive`
+- `PATCH /api/queues/:queueId/unarchive`
+- `DELETE /api/queues/:queueId`
 
 ### Tokens
-- GET /api/queues/:queueId/tokens
-- POST /api/queues/:queueId/tokens
-- PATCH /api/queues/:queueId/tokens/reorder
-- PATCH /api/queues/:queueId/tokens/serve-top
-- PATCH /api/queues/:queueId/tokens/:tokenId/complete
-- PATCH /api/queues/:queueId/tokens/:tokenId/cancel
-- PATCH /api/queues/:queueId/tokens/:tokenId/undo
+- `GET /api/queues/:queueId/tokens?search=&page=&pageSize=`
+- `POST /api/queues/:queueId/tokens`
+- `PATCH /api/queues/:queueId/tokens/reorder`
+- `PATCH /api/queues/:queueId/tokens/serve-top`
+- `PATCH /api/queues/:queueId/tokens/:tokenId/complete`
+- `PATCH /api/queues/:queueId/tokens/:tokenId/cancel`
+- `PATCH /api/queues/:queueId/tokens/:tokenId/undo`
 
 ### Analytics
-- GET /api/queues/:queueId/analytics/summary
-- GET /api/queues/:queueId/analytics/trend
-- GET /api/queues/:queueId/analytics/status-distribution
-- GET /api/queues/:queueId/analytics/hourly-traffic
+- `GET /api/queues/:queueId/analytics/summary`
+- `GET /api/queues/:queueId/analytics/trend`
+- `GET /api/queues/:queueId/analytics/status-distribution`
+- `GET /api/queues/:queueId/analytics/hourly-traffic`
+- `GET /api/queues/:queueId/analytics/reports?period=daily|weekly|monthly&from=&to=`
+- `GET /api/queues/:queueId/analytics/reports/export.csv?period=...`
+- `GET /api/queues/:queueId/analytics/reports/export.pdf?period=...`
+- `GET /api/queues/:queueId/analytics/insights?refresh=true|false`
 
-## Notes
-- Token numbers are unique per queue and auto-incremented.
-- Queue names are unique per manager.
-- Undo is one-step and token-scoped.
-- Only one token can be in serving state per queue at a time.
-- Daily/weekly/monthly reports are computed on-demand from the Token collection by design (no pre-aggregated analytics collection).
+### Activity Logs
+- `GET /api/activity-logs?page=&pageSize=`
 
-## Deployment (Render + Vercel)
-
-### Backend on Render
-
-This repo includes [render.yaml](render.yaml) for a Render web service blueprint.
-
-1. Push this repository to GitHub.
-2. In Render, create a new Blueprint and select this repo.
-3. Render will create service `queueflow-backend` using:
-  - Root directory: `backend`
-  - Build command: `npm install`
-  - Start command: `npm start`
-  - Health check path: `/health`
-4. Set required environment variables in Render:
-  - `MONGO_URI` (Atlas connection string)
-  - `JWT_SECRET` (strong secret)
-  - `FRONTEND_ORIGIN` (comma-separated allowed frontend origins)
-  - `GEMINI_API_KEY` (optional but needed for AI insights)
-5. Keep optional defaults unless you need to override:
-  - `JWT_EXPIRES_IN=1d`
-  - `GEMINI_MODEL=gemini-1.5-flash`
-  - `INSIGHTS_TIMEOUT_MS=12000`
-
-Example `FRONTEND_ORIGIN` value:
-
-`https://your-app.vercel.app,https://your-app-git-main-your-team.vercel.app`
-
-### Frontend on Vercel
-
-This repo includes [frontend/vercel.json](frontend/vercel.json) with SPA rewrite support.
-
-1. Create a new Vercel project from this repo.
-2. Set project root directory to `frontend`.
-3. Add frontend environment variables (from [frontend/.env.production.example](frontend/.env.production.example)):
-  - `VITE_API_URL=https://your-render-backend.onrender.com/api`
-  - `VITE_SOCKET_URL=https://your-render-backend.onrender.com`
-4. Deploy.
-
-### Deployment Notes
-
-- Backend CORS and Socket.io origin checks read `FRONTEND_ORIGIN`.
-- You can provide one or multiple origins using a comma-separated list.
-- If your Vercel preview URLs need access, include them in `FRONTEND_ORIGIN`.
-
-## MongoDB Atlas DNS SRV Workaround
-
-On some Windows/network DNS setups, `mongodb+srv://` may fail with:
-
-- `querySrv ECONNREFUSED _mongodb._tcp.<cluster-host>`
-
-If this occurs, use the non-SRV Atlas URI in `backend/.env` (the full `mongodb://host1,host2,host3/...` format with `replicaSet` and `authSource`) as a working fallback. This is an environment DNS resolver issue, not an application bug.
+### Public Tracking
+- `GET /api/public/track/:queueId/:tokenId`
