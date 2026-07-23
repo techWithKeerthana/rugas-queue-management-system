@@ -1,152 +1,175 @@
-# Queue Management System — Project Specification
+# Queue Management System (Tier 1)
 
-## 1. Overview
-A full-stack Queue Management application for the Rugas internship assignment. A **Queue Manager** logs in, creates queues, adds people (tokens) to those queues, reorders/serves/cancels tokens, and views analytics on queue performance. This spec merges the original assignment requirements with a curated set of extra features chosen for maximum impact on recruiters within a limited timeline.
+Full-stack Queue Management application built for the Rugas internship assignment.
 
-**Deadline:** 25th August, 2025
-**Deliverables:**
-- A working, deployed (or locally runnable) application
-- Source code pushed to a public/shared GitHub repository
-- Clean, polished UI (scored as a bonus)
-- Bug-free behavior (scored as a bonus)
+## Implemented Scope
 
----
+### Tier 1 Features Included
+- JWT auth with register, login, logout, and protected routes
+- Password hashing with bcrypt
+- Multiple queues per manager with unique queue names per manager
+- Token creation with auto-increment token number per queue
+- Token lifecycle: waiting, serving, completed, cancelled
+- Live estimated wait time per waiting token
+- Live service timer for currently serving token
+- Drag-and-drop reordering for waiting tokens
+- Serve top token, cancel token, complete token
+- One-step undo for serve/cancel/complete actions
+- Priority support: normal, senior, vip, emergency (auto-prioritized)
+- Real-time sync via Socket.io events
+- Analytics dashboard:
+  - KPI cards (total/waiting/serving/completed/cancelled)
+  - average wait time
+  - average service time
+  - longest waiting token
+  - queue length trend chart
+  - status distribution chart
+  - hourly peak traffic chart
+- UI polish:
+  - responsive layout
+  - toasts
+  - loading skeletons
+  - empty states
+  - confirmation dialogs before destructive actions
 
-## 2. Build Priority (read this before building)
-Features are grouped into tiers. **Build Tier 1 completely and solidly before touching Tier 2 or 3.** A fully working Tier 1 app with no bugs will score higher than a half-working app stuffed with every feature.
+## Tech Stack
+- Frontend: React + Tailwind CSS + Recharts + dnd-kit + Socket.io client
+- Backend: Node.js + Express + Mongoose + JWT + bcrypt + Socket.io
+- Database: MongoDB
+- Testing: Jest + Supertest + mongodb-memory-server-core
 
-- **Tier 1 — Core assignment + high-impact additions (must-have)**
-- **Tier 2 — Nice-to-have polish (build if time allows)**
-- **Tier 3 — Optional stretch (only if Tier 1 & 2 are done and stable)**
+## Project Structure
 
----
+- frontend: React app
+- backend: Express API + Socket.io + Mongoose models
+- root scripts: convenience commands for running both apps
 
-## 3. Tier 1 — Core Requirements (must-have)
+## Environment Variables
 
-### 3.1 Authentication
-- JWT-based auth: Register, Login, Logout, protected routes.
-- Passwords hashed with bcrypt.
+### backend/.env
+Copy from backend/.env.example:
 
-### 3.2 Queue Management
-- Manager can create multiple queues.
-- Each queue has a unique **name**.
+- PORT=5000
+- MONGO_URI=mongodb://127.0.0.1:27017/queue_management
+- JWT_SECRET=change_this_secret
+- JWT_EXPIRES_IN=1d
+- FRONTEND_ORIGIN=http://localhost:5173
 
-### 3.3 Token Management
-- Add people/tokens to a queue; each gets an **auto-generated unique token number**.
-- Token statuses: `Waiting`, `Serving`, `Completed`, `Cancelled`.
-- Display the live list of waiting tokens, in order.
-- **Estimated wait time** per token (based on average service time and position).
-- **Live service timer** while a token is being served.
-- **Undo Cancel / Undo Serve** — one-step recovery from an accidental action.
+### frontend/.env
+Copy from frontend/.env.example:
 
-### 3.4 Queue Interactions
-- **Drag-and-drop reordering** of tokens (replaces plain up/down buttons — bigger visual/UX win for the same requirement).
-- **Serve** the top token with a single click.
-- **Cancel** a token from anywhere in the queue.
-- **Priority queue support**: VIP / Senior Citizen / Emergency tokens can be flagged and are automatically prioritized ahead of regular tokens.
-- **Real-time updates** across all connected clients via **Socket.io** — no manual refresh needed when tokens are added, reordered, served, or cancelled.
+- VITE_API_URL=http://localhost:5000/api
+- VITE_SOCKET_URL=http://localhost:5000
 
-### 3.5 Dashboard & Analytics
-- KPI cards: Total Tokens, Waiting, Serving, Completed, Cancelled.
-- Average wait time, average service time, longest-waiting token.
-- Queue length trend chart (over time).
-- Status distribution pie chart.
-- Hourly peak-traffic chart.
+## Install
 
-### 3.6 UI/UX Polish
-- Modern, responsive UI (mobile-friendly).
-- Toast notifications for actions (token added, served, cancelled, undone).
-- Loading skeletons instead of blank/spinner-only states.
-- Empty states (e.g., "No tokens in this queue yet").
-- Confirmation dialogs before destructive actions (cancel, delete queue).
+From repo root:
 
----
+```bash
+npm install
+```
 
-## 4. Tier 2 — Nice-to-Have (build if time allows)
-- Search tokens by ID or name.
-- Pagination for large queues.
-- Duplicate detection when adding a token.
-- Queue capacity limit (block new tokens once full).
-- Daily / Weekly / Monthly analytics reports.
-- Export reports to CSV / PDF.
-- Dark / Light mode toggle.
-- Profile dropdown (manager info, logout).
+Backend:
 
----
+```bash
+cd backend
+npm install
+```
 
-## 5. Tier 3 — Optional Stretch (only if Tier 1 & 2 are solid)
-- **AI Queue Insights** (via Gemini or OpenAI API): generates natural-language insights — peak hours, changes in average wait time, bottlenecks, recommendations. High "wow" factor but adds an external API dependency, cost, and failure surface — only attempt once the core app is stable and there's real time left before the deadline.
-- Queue history archive (closed/past queues kept for reference).
-- Separate Activity Logs (audit trail of manager actions).
+Frontend:
 
----
+```bash
+cd frontend
+npm install
+```
 
-## 6. Suggested Data Model (MongoDB Collections)
+## Run (Development)
 
-**Users**
-- `_id`, name, email, password_hash, created_at
+### Option 1: run both from root
 
-**Queues**
-- `_id`, name, manager_id (ref Users), capacity (optional), is_archived, created_at
+```bash
+npm run dev
+```
 
-**Tokens**
-- `_id`, queue_id (ref Queues), token_number, person_name, priority (`normal` | `vip` | `senior` | `emergency`), position, status (`waiting` | `serving` | `completed` | `cancelled`), created_at, served_at, completed_at, cancelled_at
+### Option 2: run separately
 
-**Analytics**
-- `_id`, queue_id, date, avg_wait_time, avg_service_time, total_served, total_cancelled, peak_hour
+Terminal 1:
 
-**Activity Logs** *(Tier 3)*
-- `_id`, manager_id, action, target_id, timestamp
+```bash
+cd backend
+npm run dev
+```
 
----
+Terminal 2:
 
-## 7. Technical Stack
-- **Frontend:** React + Tailwind CSS
-- **Backend:** Node.js + Express.js
-- **Database:** MongoDB (Mongoose)
-- **Authentication:** JWT + bcrypt
-- **Charts:** Recharts / Chart.js
-- **Real-time:** Socket.io
-- **Drag-and-drop:** dnd-kit or react-beautiful-dnd
-- **Deployment:** Vercel (frontend) + Render (backend + DB, or MongoDB Atlas)
+```bash
+cd frontend
+npm run dev
+```
 
----
+Frontend default URL: http://localhost:5173  
+Backend default URL: http://localhost:5000
 
-## 8. Suggested Pages/Screens
-1. **Login / Register page**
-2. **Queues list page** (create new queue, list existing queues)
-3. **Queue detail page** — token list with drag-and-drop reorder, add-token form (with priority flag), serve/cancel/undo controls, live wait-time display
-4. **Analytics dashboard page** — KPI cards + charts
-5. *(Tier 2/3)* Settings/profile dropdown, dark/light toggle, AI insights panel
+## Seed Demo Data
 
----
+1. Ensure MongoDB is running and backend env is configured.
+2. Run:
 
-## 9. Non-Functional / Evaluation Criteria
-| Criteria | Notes |
-|---|---|
-| Working application | Must run end-to-end without crashing |
-| Code in GitHub | Public repo or repo shared with reviewers, clear commit history |
-| Good UI | Bonus — Tier 1's polish items directly target this |
-| Bug-free | Bonus — handle edge cases (empty queue, invalid reorder, already-served token, duplicate names, etc.) |
+```bash
+cd backend
+npm run seed
+```
 
----
+Seed creates a demo manager:
+- Email: manager@queueflow.dev
+- Password: Password123
 
-## 10. Build Instructions (for the coding agent)
-- Clean architecture, reusable React components, RESTful APIs, proper folder structure.
-- Error handling and input validation on every endpoint.
-- Responsive, professional UI.
-- Git-ready code with incremental, well-labeled commits.
-- Seed script with sample data (a few queues, tokens in various statuses) for demo purposes.
-- Ensure bug-free implementation — this is explicitly scored.
-- README (in the actual repo, separate from this spec) with clear setup/run instructions.
+## Tests
 
----
+Run backend business logic tests:
 
-## 11. Submission Checklist
-- [ ] All Tier 1 features implemented and tested
-- [ ] Tier 2 features added as time permits
-- [ ] Tier 3 (AI insights, etc.) attempted only if ahead of schedule
-- [ ] Code pushed to GitHub with a clear commit history
-- [ ] Repo README with setup/run instructions and seed data steps
-- [ ] Screenshots or a short demo video/GIF in the repo (recommended)
-- [ ] Live deployment link (recommended, not required)
+```bash
+cd backend
+npm test
+```
+
+Tests verify:
+- priority queue ordering logic
+- serve/cancel/undo state and timestamp transitions
+- drag-and-drop reorder persistence
+- socket event firing for add/reorder/serve/cancel
+
+## API Overview
+
+### Auth
+- POST /api/auth/register
+- POST /api/auth/login
+- POST /api/auth/logout
+- GET /api/auth/me
+
+### Queues
+- POST /api/queues
+- GET /api/queues
+- GET /api/queues/:queueId
+- DELETE /api/queues/:queueId
+
+### Tokens
+- GET /api/queues/:queueId/tokens
+- POST /api/queues/:queueId/tokens
+- PATCH /api/queues/:queueId/tokens/reorder
+- PATCH /api/queues/:queueId/tokens/serve-top
+- PATCH /api/queues/:queueId/tokens/:tokenId/complete
+- PATCH /api/queues/:queueId/tokens/:tokenId/cancel
+- PATCH /api/queues/:queueId/tokens/:tokenId/undo
+
+### Analytics
+- GET /api/queues/:queueId/analytics/summary
+- GET /api/queues/:queueId/analytics/trend
+- GET /api/queues/:queueId/analytics/status-distribution
+- GET /api/queues/:queueId/analytics/hourly-traffic
+
+## Notes
+- Token numbers are unique per queue and auto-incremented.
+- Queue names are unique per manager.
+- Undo is one-step and token-scoped.
+- Only one token can be in serving state per queue at a time.
