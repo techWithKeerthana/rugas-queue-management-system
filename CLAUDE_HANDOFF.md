@@ -7,7 +7,7 @@ It captures the current project state, architecture, APIs, test coverage, deploy
 
 - Project: full-stack Queue Management System
 - Repository root: D:\Rugas
-- Current branch: feat/multi-counter
+- Current branch: master
 - Deployment targets:
   - Backend: Render (Node + Express + Socket.io + MongoDB Atlas)
   - Frontend: Vercel (React + Vite + Tailwind)
@@ -279,6 +279,7 @@ Base backend URL (prod): https://queueflow-backend-fk17.onrender.com
 - Frontend (Vercel): https://frontend-sand-two-jsq0xwws5z.vercel.app
 - Backend (Render): https://queueflow-backend-fk17.onrender.com
 - GitHub repo: https://github.com/techWithKeerthana/rugas-queue-management-system
+- Status: URLs unchanged and still accurate after merging multi-counter into master.
 
 ## 8) Required Environment Variables (Names Only)
 
