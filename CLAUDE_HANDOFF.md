@@ -3,10 +3,10 @@
 This document is intended for a brand-new AI assistant with zero prior context.
 It captures the current project state, architecture, APIs, test coverage, deployment, caveats, and immediate next steps.
 
-## UI Redesign Branch Note
+## UI Redesign Status
 
-- UI redesign is in progress on branch feat/ui-redesign.
-- Scope is frontend-only visual/UX polish; no backend logic/API/business-rule changes.
+- UI redesign is complete and merged into master.
+- Scope was frontend-only visual/UX polish; no backend logic/API/business-rule changes.
 - Shared design tokens established in frontend/tailwind.config.js and frontend/src/index.css:
   - Typography: Manrope for headings, Inter for body (local @fontsource, Latin subsets)
   - Palette: brand blue/indigo scale with neutral slate surfaces
