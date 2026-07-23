@@ -7,6 +7,7 @@ const authRoutes = require("./routes/authRoutes");
 const queueRoutes = require("./routes/queueRoutes");
 const tokenRoutes = require("./routes/tokenRoutes");
 const analyticsRoutes = require("./routes/analyticsRoutes");
+const activityLogRoutes = require("./routes/activityLogRoutes");
 const { protect } = require("./middleware/authMiddleware");
 const notFound = require("./middleware/notFound");
 const errorHandler = require("./middleware/errorHandler");
@@ -30,6 +31,7 @@ function createApp() {
   app.use("/api/queues", protect, queueRoutes);
   app.use("/api/queues/:queueId/tokens", protect, tokenRoutes);
   app.use("/api/queues/:queueId/analytics", protect, analyticsRoutes);
+  app.use("/api/activity-logs", protect, activityLogRoutes);
 
   app.use(notFound);
   app.use(errorHandler);

@@ -2,6 +2,7 @@ const Queue = require("../models/Queue");
 const Token = require("../models/Token");
 const asyncHandler = require("../utils/asyncHandler");
 const httpError = require("../utils/httpError");
+const { logActivity } = require("../services/activityLogService");
 
 function normalizeQueueName(name) {
   return name.trim().toLowerCase().replace(/\s+/g, " ");
@@ -26,11 +27,27 @@ const createQueue = asyncHandler(async (req, res) => {
     capacity: capacity ?? null,
   });
 
+  await logActivity({
+    managerId: req.user.id,
+    queueId: queue._id,
+    action: "queue_created",
+    message: `Queue created: ${queue.name}`,
+    metadata: { capacity: queue.capacity },
+  });
+
   res.status(201).json({ queue });
 });
 
 const listQueues = asyncHandler(async (req, res) => {
-  const queues = await Queue.find({ managerId: req.user.id }).sort({ createdAt: -1 }).lean();
+  const status = req.query.status || "active";
+  const query = { managerId: req.user.id };
+  if (status === "active") {
+    query.isArchived = false;
+  } else if (status === "archived") {
+    query.isArchived = true;
+  }
+
+  const queues = await Queue.find(query).sort({ createdAt: -1 }).lean();
   res.json({ queues });
 });
 
@@ -62,7 +79,54 @@ const deleteQueue = asyncHandler(async (req, res) => {
 
   await Token.deleteMany({ queueId: queue._id });
 
+  await logActivity({
+    managerId: req.user.id,
+    queueId: queue._id,
+    action: "queue_deleted",
+    message: `Queue deleted: ${queue.name}`,
+  });
+
   res.json({ message: "Queue deleted" });
+});
+
+const archiveQueue = asyncHandler(async (req, res) => {
+  const queue = await Queue.findOne({ _id: req.params.queueId, managerId: req.user.id });
+  if (!queue) {
+    throw httpError(404, "Queue not found");
+  }
+
+  queue.isArchived = true;
+  queue.archivedAt = new Date();
+  await queue.save();
+
+  await logActivity({
+    managerId: req.user.id,
+    queueId: queue._id,
+    action: "queue_archived",
+    message: `Queue archived: ${queue.name}`,
+  });
+
+  res.json({ queue });
+});
+
+const unarchiveQueue = asyncHandler(async (req, res) => {
+  const queue = await Queue.findOne({ _id: req.params.queueId, managerId: req.user.id });
+  if (!queue) {
+    throw httpError(404, "Queue not found");
+  }
+
+  queue.isArchived = false;
+  queue.archivedAt = null;
+  await queue.save();
+
+  await logActivity({
+    managerId: req.user.id,
+    queueId: queue._id,
+    action: "queue_unarchived",
+    message: `Queue unarchived: ${queue.name}`,
+  });
+
+  res.json({ queue });
 });
 
 async function getOwnedQueue(queueId, managerId) {
@@ -73,10 +137,19 @@ async function getOwnedQueue(queueId, managerId) {
   return queue;
 }
 
+function assertQueueMutable(queue) {
+  if (queue.isArchived) {
+    throw httpError(409, "Queue is archived and cannot be modified");
+  }
+}
+
 module.exports = {
   createQueue,
   listQueues,
   getQueue,
   deleteQueue,
+  archiveQueue,
+  unarchiveQueue,
   getOwnedQueue,
+  assertQueueMutable,
 };

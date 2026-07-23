@@ -3,9 +3,10 @@ const asyncHandler = require("../utils/asyncHandler");
 const httpError = require("../utils/httpError");
 const { nextTokenNumber } = require("../utils/tokenNumber");
 const { TOKEN_STATUS, TOKEN_PRIORITY, PRIORITY_WEIGHT } = require("../utils/constants");
-const { getOwnedQueue } = require("./queueController");
+const { getOwnedQueue, assertQueueMutable } = require("./queueController");
 const { safeEmitToQueue } = require("../config/socket");
 const { calculateAverageServiceSeconds, estimatedWaitSeconds } = require("../utils/queueMath");
+const { logActivity } = require("../services/activityLogService");
 
 function escapeRegex(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -95,6 +96,7 @@ const listTokens = asyncHandler(async (req, res) => {
 
 const addToken = asyncHandler(async (req, res) => {
   const queue = await getOwnedQueue(req.params.queueId, req.user.id);
+  assertQueueMutable(queue);
   const priority = req.body.priority || TOKEN_PRIORITY.NORMAL;
   const priorityWeight = PRIORITY_WEIGHT[priority];
   const personName = req.body.personName.trim();
@@ -149,12 +151,22 @@ const addToken = asyncHandler(async (req, res) => {
 
   safeEmitToQueue(queue._id.toString(), "token:added", { queueId: queue._id.toString(), tokenId: token._id.toString() });
 
+  await logActivity({
+    managerId: req.user.id,
+    queueId: queue._id,
+    tokenId: token._id,
+    action: "token_added",
+    message: `Token #${token.tokenNumber} added for ${token.personName}`,
+    metadata: { priority: token.priority },
+  });
+
   const payload = await buildTokenResponse(queue._id);
   res.status(201).json(payload);
 });
 
 const reorderTokens = asyncHandler(async (req, res) => {
   const queue = await getOwnedQueue(req.params.queueId, req.user.id);
+  assertQueueMutable(queue);
   const { orderedTokenIds } = req.body;
 
   const waitingTokens = await Token.find({ queueId: queue._id, status: TOKEN_STATUS.WAITING });
@@ -187,12 +199,20 @@ const reorderTokens = asyncHandler(async (req, res) => {
 
   safeEmitToQueue(queue._id.toString(), "token:reordered", { queueId: queue._id.toString() });
 
+  await logActivity({
+    managerId: req.user.id,
+    queueId: queue._id,
+    action: "tokens_reordered",
+    message: `Queue reordered with ${orderedTokenIds.length} waiting tokens`,
+  });
+
   const payload = await buildTokenResponse(queue._id);
   res.json(payload);
 });
 
 const serveTopToken = asyncHandler(async (req, res) => {
   const queue = await getOwnedQueue(req.params.queueId, req.user.id);
+  assertQueueMutable(queue);
 
   const activeServing = await Token.findOne({ queueId: queue._id, status: TOKEN_STATUS.SERVING });
   if (activeServing) {
@@ -221,12 +241,21 @@ const serveTopToken = asyncHandler(async (req, res) => {
   safeEmitToQueue(queue._id.toString(), "token:served", { queueId: queue._id.toString(), tokenId: top._id.toString() });
   safeEmitToQueue(queue._id.toString(), "token:statusChanged", { action: "serve", queueId: queue._id.toString(), tokenId: top._id.toString() });
 
+  await logActivity({
+    managerId: req.user.id,
+    queueId: queue._id,
+    tokenId: top._id,
+    action: "token_served",
+    message: `Token #${top.tokenNumber} moved to serving`,
+  });
+
   const payload = await buildTokenResponse(queue._id);
   res.json(payload);
 });
 
 const completeToken = asyncHandler(async (req, res) => {
   const queue = await getOwnedQueue(req.params.queueId, req.user.id);
+  assertQueueMutable(queue);
   const token = await Token.findOne({ _id: req.params.tokenId, queueId: queue._id });
   if (!token) {
     throw httpError(404, "Token not found");
@@ -250,12 +279,21 @@ const completeToken = asyncHandler(async (req, res) => {
 
   safeEmitToQueue(queue._id.toString(), "token:statusChanged", { action: "complete", queueId: queue._id.toString(), tokenId: token._id.toString() });
 
+  await logActivity({
+    managerId: req.user.id,
+    queueId: queue._id,
+    tokenId: token._id,
+    action: "token_completed",
+    message: `Token #${token.tokenNumber} marked completed`,
+  });
+
   const payload = await buildTokenResponse(queue._id);
   res.json(payload);
 });
 
 const cancelToken = asyncHandler(async (req, res) => {
   const queue = await getOwnedQueue(req.params.queueId, req.user.id);
+  assertQueueMutable(queue);
   const token = await Token.findOne({ _id: req.params.tokenId, queueId: queue._id });
   if (!token) {
     throw httpError(404, "Token not found");
@@ -284,12 +322,21 @@ const cancelToken = asyncHandler(async (req, res) => {
   safeEmitToQueue(queue._id.toString(), "token:cancelled", { queueId: queue._id.toString(), tokenId: token._id.toString() });
   safeEmitToQueue(queue._id.toString(), "token:statusChanged", { action: "cancel", queueId: queue._id.toString(), tokenId: token._id.toString() });
 
+  await logActivity({
+    managerId: req.user.id,
+    queueId: queue._id,
+    tokenId: token._id,
+    action: "token_cancelled",
+    message: `Token #${token.tokenNumber} cancelled`,
+  });
+
   const payload = await buildTokenResponse(queue._id);
   res.json(payload);
 });
 
 const undoTokenAction = asyncHandler(async (req, res) => {
   const queue = await getOwnedQueue(req.params.queueId, req.user.id);
+  assertQueueMutable(queue);
   const token = await Token.findOne({ _id: req.params.tokenId, queueId: queue._id });
   if (!token) {
     throw httpError(404, "Token not found");
@@ -310,6 +357,14 @@ const undoTokenAction = asyncHandler(async (req, res) => {
 
   await renumberWaitingPositions(queue._id);
   safeEmitToQueue(queue._id.toString(), "token:undone", { queueId: queue._id.toString(), tokenId: token._id.toString() });
+
+  await logActivity({
+    managerId: req.user.id,
+    queueId: queue._id,
+    tokenId: token._id,
+    action: "token_action_undone",
+    message: `Last action on token #${token.tokenNumber} was undone`,
+  });
 
   const payload = await buildTokenResponse(queue._id);
   res.json(payload);

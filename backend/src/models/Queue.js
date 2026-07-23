@@ -23,6 +23,15 @@ const queueSchema = new mongoose.Schema(
       min: 1,
       default: null,
     },
+    isArchived: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    archivedAt: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true }
 );

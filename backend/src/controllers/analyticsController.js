@@ -11,6 +11,8 @@ const {
   createHourlyTraffic,
 } = require("../utils/queueMath");
 const { getOwnedQueue } = require("./queueController");
+const AIInsightCache = require("../models/AIInsightCache");
+const { generateQueueInsights } = require("../services/aiInsightsService");
 
 function secondsDiff(start, end) {
   return Math.max(0, dayjs(end).diff(dayjs(start), "second"));
@@ -165,6 +167,52 @@ async function reportData(queueId, period, from, to) {
   return buildReportRows(tokens, period);
 }
 
+function promiseWithTimeout(promise, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error("Insights request timed out"));
+    }, timeoutMs);
+
+    promise
+      .then((value) => {
+        clearTimeout(timer);
+        resolve(value);
+      })
+      .catch((error) => {
+        clearTimeout(timer);
+        reject(error);
+      });
+  });
+}
+
+async function buildInsightsPayload(queueId) {
+  const tokens = await Token.find({ queueId }).lean();
+  const trend = createQueueTrend(tokens, 12);
+  const statusDistribution = createStatusDistribution(tokens);
+  const hourlyTraffic = createHourlyTraffic(tokens);
+
+  const summary = {
+    totalTokens: tokens.length,
+    waiting: tokens.filter((t) => t.status === "waiting").length,
+    serving: tokens.filter((t) => t.status === "serving").length,
+    completed: tokens.filter((t) => t.status === "completed").length,
+    cancelled: tokens.filter((t) => t.status === "cancelled").length,
+    avgWaitTimeSec: calculateAverageWaitSeconds(tokens),
+    avgServiceTimeSec: calculateAverageServiceSeconds(tokens),
+    longestWaitingToken: getLongestWaitingToken(tokens),
+  };
+
+  const peak = hourlyTraffic.reduce((acc, cur) => (cur.count > acc.count ? cur : acc), { hour: 0, count: 0 });
+
+  return {
+    summary,
+    trend,
+    statusDistribution,
+    hourlyTraffic,
+    peakHour: peak,
+  };
+}
+
 const getAnalyticsSummary = asyncHandler(async (req, res) => {
   const queue = await getOwnedQueue(req.params.queueId, req.user.id);
   const tokens = await Token.find({ queueId: queue._id }).lean();
@@ -247,6 +295,68 @@ const exportPeriodicReportPDF = asyncHandler(async (req, res) => {
   res.send(pdfBuffer);
 });
 
+const getAIInsights = asyncHandler(async (req, res) => {
+  const queue = await getOwnedQueue(req.params.queueId, req.user.id);
+  const refresh = req.query.refresh === "true";
+  const maxAgeMs = 60 * 60 * 1000;
+
+  const existing = await AIInsightCache.findOne({ queueId: queue._id, managerId: req.user.id }).lean();
+  const isFresh = existing && Date.now() - new Date(existing.generatedAt).getTime() < maxAgeMs;
+
+  if (existing && isFresh && !refresh) {
+    return res.json({
+      available: true,
+      insightText: existing.insightText,
+      generatedAt: existing.generatedAt,
+      cached: true,
+      stale: false,
+    });
+  }
+
+  try {
+    const payload = await buildInsightsPayload(queue._id);
+    const timeoutMs = Number(process.env.INSIGHTS_TIMEOUT_MS || 12000);
+    const generated = await promiseWithTimeout(generateQueueInsights(payload), timeoutMs);
+
+    const saved = await AIInsightCache.findOneAndUpdate(
+      { queueId: queue._id, managerId: req.user.id },
+      {
+        insightText: generated.insightText,
+        model: generated.model,
+        generatedAt: new Date(),
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    ).lean();
+
+    return res.json({
+      available: true,
+      insightText: saved.insightText,
+      generatedAt: saved.generatedAt,
+      cached: false,
+      stale: false,
+    });
+  } catch (error) {
+    if (existing) {
+      return res.json({
+        available: true,
+        insightText: existing.insightText,
+        generatedAt: existing.generatedAt,
+        cached: true,
+        stale: true,
+        message: "Insights temporarily unavailable. Showing last generated insights.",
+      });
+    }
+
+    return res.status(200).json({
+      available: false,
+      insightText: "Insights temporarily unavailable. Please try again shortly.",
+      cached: false,
+      stale: false,
+      message: "Insights temporarily unavailable",
+    });
+  }
+});
+
 module.exports = {
   getAnalyticsSummary,
   getQueueTrend,
@@ -255,4 +365,5 @@ module.exports = {
   getPeriodicReport,
   exportPeriodicReportCSV,
   exportPeriodicReportPDF,
+  getAIInsights,
 };

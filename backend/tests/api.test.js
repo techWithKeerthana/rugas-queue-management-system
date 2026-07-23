@@ -6,10 +6,15 @@ jest.mock("../src/config/socket", () => ({
   safeEmitToQueue: jest.fn(),
 }));
 
+jest.mock("../src/services/aiInsightsService", () => ({
+  generateQueueInsights: jest.fn(),
+}));
+
 const createApp = require("../src/app");
 const { connectDB, disconnectDB } = require("../src/config/db");
 const Token = require("../src/models/Token");
 const { safeEmitToQueue } = require("../src/config/socket");
+const { generateQueueInsights } = require("../src/services/aiInsightsService");
 
 let app;
 let mongoServer;
@@ -59,6 +64,7 @@ beforeAll(async () => {
 
 afterEach(async () => {
   safeEmitToQueue.mockClear();
+  generateQueueInsights.mockReset();
   if (mongoose.connection.readyState === 1 && mongoose.connection.db) {
     await mongoose.connection.db.dropDatabase();
   }
@@ -340,5 +346,87 @@ describe("Queue token business logic", () => {
       .set("Authorization", `Bearer ${token}`);
     expect(pdfRes.status).toBe(200);
     expect(pdfRes.headers["content-type"]).toContain("application/pdf");
+  });
+
+  test("archived queues are listed separately and cannot be modified", async () => {
+    const token = await createAuthedUser();
+    const queue = await createQueue(token, "Archive Queue");
+
+    const archiveRes = await request(app)
+      .patch(`/api/queues/${queue._id}/archive`)
+      .set("Authorization", `Bearer ${token}`)
+      .send();
+    expect(archiveRes.status).toBe(200);
+    expect(archiveRes.body.queue.isArchived).toBe(true);
+
+    const activeList = await request(app).get("/api/queues?status=active").set("Authorization", `Bearer ${token}`);
+    expect(activeList.body.queues.find((q) => q._id === queue._id)).toBeFalsy();
+
+    const archivedList = await request(app)
+      .get("/api/queues?status=archived")
+      .set("Authorization", `Bearer ${token}`);
+    expect(archivedList.body.queues.find((q) => q._id === queue._id)).toBeTruthy();
+
+    const addBlocked = await request(app)
+      .post(`/api/queues/${queue._id}/tokens`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ personName: "Blocked", priority: "normal" });
+    expect(addBlocked.status).toBe(409);
+  });
+
+  test("activity logs endpoint returns queue and token actions", async () => {
+    const token = await createAuthedUser();
+    const queue = await createQueue(token, "Log Queue");
+    await addToken(token, queue._id, "Action User", "normal");
+
+    await request(app).patch(`/api/queues/${queue._id}/tokens/serve-top`).set("Authorization", `Bearer ${token}`).send();
+
+    const logsRes = await request(app)
+      .get("/api/activity-logs?page=1&pageSize=10")
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(logsRes.status).toBe(200);
+    expect(logsRes.body.logs.length).toBeGreaterThanOrEqual(2);
+    expect(logsRes.body.logs.some((log) => log.action === "queue_created")).toBe(true);
+    expect(logsRes.body.logs.some((log) => log.action === "token_served")).toBe(true);
+  });
+
+  test("ai insights endpoint returns friendly unavailable response on Gemini failure", async () => {
+    const token = await createAuthedUser();
+    const queue = await createQueue(token, "Insight Queue");
+    await addToken(token, queue._id, "A", "normal");
+
+    generateQueueInsights.mockRejectedValueOnce(new Error("rate limit"));
+
+    const insightRes = await request(app)
+      .get(`/api/queues/${queue._id}/analytics/insights`)
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(insightRes.status).toBe(200);
+    expect(insightRes.body.available).toBe(false);
+    expect(insightRes.body.message).toMatch(/temporarily unavailable/i);
+  });
+
+  test("ai insights endpoint handles slow Gemini call with timeout fallback", async () => {
+    process.env.INSIGHTS_TIMEOUT_MS = "25";
+    const token = await createAuthedUser();
+    const queue = await createQueue(token, "Slow Insight Queue");
+    await addToken(token, queue._id, "A", "normal");
+
+    generateQueueInsights.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          setTimeout(() => resolve({ insightText: "late", model: "test" }), 120);
+        })
+    );
+
+    const insightRes = await request(app)
+      .get(`/api/queues/${queue._id}/analytics/insights`)
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(insightRes.status).toBe(200);
+    expect(insightRes.body.available).toBe(false);
+    expect(insightRes.body.insightText).toMatch(/temporarily unavailable/i);
+    delete process.env.INSIGHTS_TIMEOUT_MS;
   });
 });

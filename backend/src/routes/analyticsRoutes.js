@@ -7,6 +7,7 @@ const {
   getPeriodicReport,
   exportPeriodicReportCSV,
   exportPeriodicReportPDF,
+  getAIInsights,
 } = require("../controllers/analyticsController");
 const { queueIdParamValidator } = require("../validators/queueValidators");
 const validate = require("../middleware/validate");
@@ -20,5 +21,6 @@ router.get("/hourly-traffic", queueIdParamValidator, validate, getHourlyTraffic)
 router.get("/reports", queueIdParamValidator, validate, getPeriodicReport);
 router.get("/reports/export.csv", queueIdParamValidator, validate, exportPeriodicReportCSV);
 router.get("/reports/export.pdf", queueIdParamValidator, validate, exportPeriodicReportPDF);
+router.get("/insights", queueIdParamValidator, validate, getAIInsights);
 
 module.exports = router;
