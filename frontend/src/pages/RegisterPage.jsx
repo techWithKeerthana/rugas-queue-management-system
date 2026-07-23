@@ -24,16 +24,16 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-page-pattern px-4">
-      <form onSubmit={onSubmit} className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-xl">
-        <h1 className="text-3xl font-black text-slate-900">Create Manager Account</h1>
+    <div className="flex min-h-screen items-center justify-center px-4 py-10">
+      <form onSubmit={onSubmit} className="surface-card w-full max-w-md animate-fade-up p-8">
+        <h1 className="heading-display text-3xl font-black">Create Manager Account</h1>
         <div className="mt-6 space-y-4">
           <input
             required
             placeholder="Full name"
             value={form.name}
             onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
-            className="w-full rounded-lg border border-slate-300 px-3 py-2"
+            className="soft-input"
           />
           <input
             type="email"
@@ -41,7 +41,7 @@ export default function RegisterPage() {
             placeholder="Email"
             value={form.email}
             onChange={(event) => setForm((prev) => ({ ...prev, email: event.target.value }))}
-            className="w-full rounded-lg border border-slate-300 px-3 py-2"
+            className="soft-input"
           />
           <input
             type="password"
@@ -50,14 +50,14 @@ export default function RegisterPage() {
             placeholder="Password"
             value={form.password}
             onChange={(event) => setForm((prev) => ({ ...prev, password: event.target.value }))}
-            className="w-full rounded-lg border border-slate-300 px-3 py-2"
+            className="soft-input"
           />
         </div>
-        <button disabled={submitting} className="mt-6 w-full rounded-lg bg-teal-700 px-4 py-2 font-semibold text-white disabled:opacity-60">
+        <button disabled={submitting} className="btn-primary mt-6 w-full disabled:opacity-60">
           {submitting ? "Creating..." : "Create Account"}
         </button>
-        <p className="mt-4 text-sm text-slate-600">
-          Already registered? <Link to="/login" className="font-semibold text-slate-900">Sign in</Link>
+        <p className="mt-4 text-sm text-muted">
+          Already registered? <Link to="/login" className="font-semibold text-brand-700 dark:text-brand-300">Sign in</Link>
         </p>
       </form>
     </div>

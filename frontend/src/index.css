@@ -1,57 +1,173 @@
+@import "@fontsource/inter/latin-400.css";
+@import "@fontsource/inter/latin-500.css";
+@import "@fontsource/inter/latin-600.css";
+@import "@fontsource/inter/latin-700.css";
+@import "@fontsource/manrope/latin-700.css";
+@import "@fontsource/manrope/latin-800.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  font-family: "Space Grotesk", "Segoe UI", sans-serif;
+  --page-bg: #f3f6fc;
+  --page-accent: radial-gradient(circle at 10% 8%, rgba(75, 119, 255, 0.16), transparent 38%);
+  --page-accent-2: radial-gradient(circle at 92% 14%, rgba(20, 92, 250, 0.12), transparent 32%);
+  --surface: rgba(255, 255, 255, 0.88);
+  --surface-strong: #ffffff;
+  --surface-border: rgba(148, 163, 184, 0.24);
+  --text-main: #0f172a;
+  --text-muted: #475569;
+  --text-soft: #64748b;
+  --brand: #3359f4;
+  --brand-soft: #e9efff;
+  --shadow-soft: 0 18px 40px -28px rgba(15, 23, 42, 0.36);
+  --shadow-lift: 0 26px 48px -30px rgba(22, 42, 99, 0.45);
+}
+
+.dark {
+  --page-bg: #070d1f;
+  --page-accent: radial-gradient(circle at 8% 8%, rgba(79, 124, 255, 0.22), transparent 34%);
+  --page-accent-2: radial-gradient(circle at 90% 16%, rgba(56, 103, 242, 0.18), transparent 36%);
+  --surface: rgba(15, 23, 42, 0.78);
+  --surface-strong: rgba(15, 23, 42, 0.92);
+  --surface-border: rgba(148, 163, 184, 0.2);
+  --text-main: #e2e8f0;
+  --text-muted: #cbd5e1;
+  --text-soft: #94a3b8;
+  --brand: #7ea2ff;
+  --brand-soft: rgba(49, 78, 168, 0.26);
+  --shadow-soft: 0 18px 40px -28px rgba(0, 0, 0, 0.65);
+  --shadow-lift: 0 26px 48px -30px rgba(0, 0, 0, 0.8);
 }
 
 body {
   margin: 0;
   min-height: 100vh;
-  color: #0f172a;
-  background: #f8fafc;
+  font-family: "Inter", "Segoe UI", sans-serif;
+  color: var(--text-main);
+  background: var(--page-accent), var(--page-accent-2), linear-gradient(160deg, var(--page-bg) 0%, #eef3ff 52%, #f8fbff 100%);
 }
 
 .dark body {
-  color: #e2e8f0;
-  background: #020617;
+  background: var(--page-accent), var(--page-accent-2), linear-gradient(160deg, #070d1f 0%, #0c1530 46%, #101d3d 100%);
 }
 
 #root {
   min-height: 100vh;
 }
 
-.bg-page-pattern {
-  background:
-    radial-gradient(circle at 15% 20%, rgba(251, 191, 36, 0.24), transparent 32%),
-    radial-gradient(circle at 85% 10%, rgba(20, 184, 166, 0.2), transparent 30%),
-    linear-gradient(135deg, #f8fafc 0%, #fff7ed 46%, #f0fdfa 100%);
-}
+@layer components {
+  .premium-page {
+    @apply space-y-6 animate-fade-up;
+  }
 
-.dark .bg-page-pattern {
-  background:
-    radial-gradient(circle at 15% 20%, rgba(245, 158, 11, 0.12), transparent 32%),
-    radial-gradient(circle at 85% 10%, rgba(20, 184, 166, 0.12), transparent 30%),
-    linear-gradient(135deg, #020617 0%, #111827 46%, #0f172a 100%);
-}
+  .glass-nav {
+    background: color-mix(in oklab, var(--surface-strong) 78%, transparent);
+    border-color: var(--surface-border);
+    backdrop-filter: blur(14px);
+  }
 
-.tab-link {
-  border-radius: 0.5rem;
-  padding: 0.4rem 0.75rem;
-  color: #475569;
-}
+  .surface-card {
+    @apply rounded-3xl border p-5 transition duration-200 ease-out;
+    border-color: var(--surface-border);
+    background: var(--surface);
+    box-shadow: var(--shadow-soft);
+  }
 
-.dark .tab-link {
-  color: #cbd5e1;
-}
+  .surface-card-hover {
+    @apply hover:-translate-y-0.5;
+  }
 
-.tab-link-active {
-  background: #0f172a;
-  color: #ffffff;
-}
+  .surface-card-hover:hover {
+    box-shadow: var(--shadow-lift);
+  }
 
-.dark .tab-link-active {
-  background: #f8fafc;
-  color: #0f172a;
+  .surface-panel {
+    @apply rounded-2xl border p-4;
+    border-color: var(--surface-border);
+    background: var(--surface-strong);
+  }
+
+  .heading-display {
+    @apply font-display tracking-tight;
+    color: var(--text-main);
+  }
+
+  .text-muted {
+    color: var(--text-muted);
+  }
+
+  .text-soft {
+    color: var(--text-soft);
+  }
+
+  .soft-input {
+    @apply w-full rounded-xl border px-3 py-2.5 text-sm outline-none transition duration-200 ease-out;
+    border-color: var(--surface-border);
+    background: color-mix(in oklab, var(--surface-strong) 94%, transparent);
+    color: var(--text-main);
+  }
+
+  .soft-input::placeholder {
+    color: var(--text-soft);
+  }
+
+  .soft-input:focus {
+    border-color: color-mix(in oklab, var(--brand) 66%, white);
+    box-shadow: 0 0 0 4px color-mix(in oklab, var(--brand) 16%, transparent);
+  }
+
+  .btn-primary {
+    @apply rounded-xl px-4 py-2.5 text-sm font-semibold text-white transition duration-200 ease-out;
+    background: linear-gradient(135deg, #3a5fff 0%, #3554db 100%);
+    box-shadow: 0 10px 22px -14px rgba(40, 72, 201, 0.75);
+  }
+
+  .btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 16px 24px -14px rgba(29, 61, 191, 0.82);
+  }
+
+  .btn-primary:disabled {
+    @apply cursor-not-allowed opacity-60;
+  }
+
+  .btn-secondary {
+    @apply rounded-xl border px-3.5 py-2 text-sm font-semibold transition duration-200 ease-out;
+    border-color: var(--surface-border);
+    color: var(--text-muted);
+    background: color-mix(in oklab, var(--surface) 92%, transparent);
+  }
+
+  .btn-secondary:hover {
+    @apply -translate-y-0.5;
+    color: var(--text-main);
+    background: color-mix(in oklab, var(--brand-soft) 26%, var(--surface) 74%);
+  }
+
+  .tab-link {
+    @apply rounded-full px-4 py-2 text-sm font-medium transition duration-200 ease-out;
+    color: var(--text-muted);
+  }
+
+  .tab-link:hover {
+    color: var(--text-main);
+    background: color-mix(in oklab, var(--brand-soft) 24%, transparent);
+  }
+
+  .tab-link-active {
+    color: white;
+    background: linear-gradient(135deg, #4468ff 0%, #2f4cc4 100%);
+    box-shadow: 0 10px 22px -14px rgba(49, 81, 223, 0.85);
+  }
+
+  .dark .tab-link-active {
+    color: #e2e8f0;
+    background: linear-gradient(135deg, #3f59ca 0%, #3147a5 100%);
+  }
+
+  .status-chip {
+    @apply rounded-full px-2.5 py-1 text-xs font-semibold capitalize;
+  }
 }

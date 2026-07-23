@@ -28,7 +28,7 @@ export default function ActivityLogsPage() {
 
   if (loading) {
     return (
-      <div className="space-y-3">
+      <div className="premium-page">
         <Skeleton className="h-16" />
         <Skeleton className="h-16" />
         <Skeleton className="h-16" />
@@ -37,21 +37,21 @@ export default function ActivityLogsPage() {
   }
 
   return (
-    <div className="space-y-4">
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
-        <h2 className="text-2xl font-black text-slate-900 dark:text-slate-100">Activity Logs</h2>
-        <p className="text-sm text-slate-600 dark:text-slate-400">Recent manager actions across queues and tokens.</p>
+    <div className="premium-page">
+      <section className="surface-card surface-card-hover">
+        <h2 className="heading-display text-3xl font-black">Activity Logs</h2>
+        <p className="text-sm text-muted">Recent manager actions across queues and tokens.</p>
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+      <section className="surface-card">
         {logs.length === 0 ? (
-          <p className="text-sm text-slate-600 dark:text-slate-400">No activity recorded yet.</p>
+          <p className="text-sm text-muted">No activity recorded yet.</p>
         ) : (
           <div className="space-y-3">
             {logs.map((log) => (
-              <article key={log._id} className="rounded-lg border border-slate-200 px-3 py-2 dark:border-slate-700">
+              <article key={log._id} className="surface-panel">
                 <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{log.message}</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
+                <p className="text-xs text-soft">
                   {log.action} • {new Date(log.createdAt).toLocaleString()}
                 </p>
               </article>
@@ -61,8 +61,8 @@ export default function ActivityLogsPage() {
       </section>
 
       {pagination ? (
-        <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-900">
-          <p className="text-sm text-slate-600 dark:text-slate-400">
+        <div className="surface-card flex items-center justify-between px-4 py-3">
+          <p className="text-sm text-muted">
             Page {pagination.page} of {pagination.totalPages}
           </p>
           <div className="flex gap-2">
@@ -70,7 +70,7 @@ export default function ActivityLogsPage() {
               type="button"
               disabled={!pagination.hasPreviousPage}
               onClick={() => setPage((prev) => Math.max(1, prev - 1))}
-              className="rounded-md border border-slate-300 px-3 py-1 text-sm disabled:opacity-50 dark:border-slate-700"
+              className="btn-secondary disabled:opacity-50"
             >
               Previous
             </button>
@@ -78,7 +78,7 @@ export default function ActivityLogsPage() {
               type="button"
               disabled={!pagination.hasNextPage}
               onClick={() => setPage((prev) => prev + 1)}
-              className="rounded-md border border-slate-300 px-3 py-1 text-sm disabled:opacity-50 dark:border-slate-700"
+              className="btn-secondary disabled:opacity-50"
             >
               Next
             </button>

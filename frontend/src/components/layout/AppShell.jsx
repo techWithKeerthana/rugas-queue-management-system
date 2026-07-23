@@ -27,13 +27,13 @@ export default function AppShell({ children }) {
   };
 
   return (
-    <div className="min-h-screen bg-page-pattern">
-      <header className="border-b border-slate-200 bg-white/70 backdrop-blur dark:border-slate-800 dark:bg-slate-900/70">
+    <div className="min-h-screen">
+      <header className="glass-nav sticky top-0 z-40 border-b">
         <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
-          <Link to="/queues" className="text-xl font-black tracking-tight text-slate-900 dark:text-slate-100">
-            QueueFlow
+          <Link to="/queues" className="heading-display text-xl font-extrabold">
+            QueueFlow <span className="text-brand-500">Suite</span>
           </Link>
-          <nav className="flex items-center gap-3 text-sm font-medium">
+          <nav className="flex items-center gap-2 text-sm font-medium">
             <NavLink to="/queues" className={({ isActive }) => (isActive ? "tab-link tab-link-active" : "tab-link")}>
               Queues
             </NavLink>
@@ -47,20 +47,20 @@ export default function AppShell({ children }) {
               <button
                 type="button"
                 onClick={() => setMenuOpen((prev) => !prev)}
-                className="rounded-lg border border-slate-300 px-3 py-1.5 text-slate-700 dark:border-slate-700 dark:text-slate-200"
+                className="btn-secondary min-w-[112px]"
               >
                 {user?.name || "Profile"}
               </button>
 
               {menuOpen ? (
-                <div className="absolute right-0 z-50 mt-2 w-64 rounded-xl border border-slate-200 bg-white p-3 shadow-lg dark:border-slate-700 dark:bg-slate-900">
-                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{user?.name}</p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">{user?.email}</p>
+                <div className="surface-panel absolute right-0 z-50 mt-2 w-72 p-3">
+                  <p className="heading-display text-sm font-bold">{user?.name}</p>
+                  <p className="text-xs text-soft">{user?.email}</p>
 
                   <button
                     type="button"
                     onClick={toggleTheme}
-                    className="mt-3 w-full rounded-md border border-slate-300 px-3 py-2 text-left text-sm text-slate-700 dark:border-slate-700 dark:text-slate-200"
+                    className="btn-secondary mt-3 w-full text-left"
                   >
                     Theme: {theme === "dark" ? "Dark" : "Light"} (toggle)
                   </button>
@@ -68,7 +68,7 @@ export default function AppShell({ children }) {
                   <button
                     type="button"
                     onClick={handleLogout}
-                    className="mt-2 w-full rounded-md bg-slate-900 px-3 py-2 text-left text-sm text-white dark:bg-slate-100 dark:text-slate-900"
+                    className="btn-primary mt-2 w-full text-left"
                   >
                     Logout
                   </button>

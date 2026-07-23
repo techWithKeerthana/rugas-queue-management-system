@@ -3,6 +3,17 @@
 This document is intended for a brand-new AI assistant with zero prior context.
 It captures the current project state, architecture, APIs, test coverage, deployment, caveats, and immediate next steps.
 
+## UI Redesign Branch Note
+
+- UI redesign is in progress on branch feat/ui-redesign.
+- Scope is frontend-only visual/UX polish; no backend logic/API/business-rule changes.
+- Shared design tokens established in frontend/tailwind.config.js and frontend/src/index.css:
+  - Typography: Manrope for headings, Inter for body (local @fontsource, Latin subsets)
+  - Palette: brand blue/indigo scale with neutral slate surfaces
+  - Surfaces: reusable glass navigation, premium cards, panel, button, input, and status-chip classes
+  - Motion: subtle fade-up entry and 150-300ms hover/focus transitions
+  - Theme parity: token variables for both light/dark modes preserved with existing ThemeContext toggle
+
 ## 1) Project Summary
 
 - Project: full-stack Queue Management System

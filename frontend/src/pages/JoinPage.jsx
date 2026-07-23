@@ -30,10 +30,10 @@ export default function JoinPage() {
   };
 
   return (
-    <main className="min-h-screen bg-slate-100 px-4 py-10 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
-      <section className="mx-auto max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <h1 className="text-2xl font-black">Join Queue</h1>
-        <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Enter your name to get a token and track your place.</p>
+    <main className="min-h-screen px-4 py-10 text-slate-900 dark:text-slate-100">
+      <section className="surface-card mx-auto max-w-lg animate-fade-up p-6">
+        <h1 className="heading-display text-3xl font-black">Join Queue</h1>
+        <p className="mt-1 text-sm text-muted">Enter your name to get a token and track your place.</p>
 
         <form onSubmit={handleSubmit} className="mt-5 space-y-4">
           <label className="block">
@@ -41,7 +41,7 @@ export default function JoinPage() {
             <input
               value={personName}
               onChange={(event) => setPersonName(event.target.value)}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-950"
+              className="soft-input"
               placeholder="Enter your full name"
               maxLength={120}
               autoComplete="name"
@@ -51,7 +51,7 @@ export default function JoinPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-lg bg-slate-900 px-4 py-2 font-semibold text-white disabled:opacity-60"
+            className="btn-primary w-full disabled:opacity-60"
           >
             {loading ? "Joining..." : "Join Queue"}
           </button>

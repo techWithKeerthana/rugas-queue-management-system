@@ -86,9 +86,9 @@ export default function QueueCountersCard({ queueId, queue, tokens, onQueueChang
   };
 
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-      <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Counters</h3>
-      <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+    <section className="surface-card">
+      <h3 className="heading-display text-lg font-bold">Counters</h3>
+      <p className="mt-1 text-sm text-muted">
         Manage service counters. Busy counters cannot be renamed or removed while serving.
       </p>
 
@@ -97,12 +97,12 @@ export default function QueueCountersCard({ queueId, queue, tokens, onQueueChang
           value={newCounterName}
           onChange={(event) => setNewCounterName(event.target.value)}
           placeholder="Add a new counter name"
-          className="w-full rounded-lg border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+          className="soft-input"
         />
         <button
           type="submit"
           disabled={isAdding}
-          className="rounded-lg bg-teal-600 px-4 py-2 font-semibold text-white disabled:opacity-60"
+          className="btn-primary"
         >
           Add Counter
         </button>
@@ -118,7 +118,7 @@ export default function QueueCountersCard({ queueId, queue, tokens, onQueueChang
           return (
             <div
               key={counter._id}
-              className="rounded-xl border border-slate-200 p-3 dark:border-slate-700"
+              className="surface-panel"
             >
               <div className="grid gap-2 md:grid-cols-[1fr_auto_auto]">
                 <input
@@ -130,13 +130,13 @@ export default function QueueCountersCard({ queueId, queue, tokens, onQueueChang
                     }))
                   }
                   disabled={isServing || renameLoading}
-                  className="rounded-lg border border-slate-300 px-3 py-2 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                  className="soft-input disabled:cursor-not-allowed disabled:opacity-60"
                 />
                 <button
                   type="button"
                   onClick={() => renameCounter(counter)}
                   disabled={isServing || renameLoading}
-                  className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700"
+                  className="btn-secondary disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   Rename
                 </button>
@@ -144,18 +144,18 @@ export default function QueueCountersCard({ queueId, queue, tokens, onQueueChang
                   type="button"
                   onClick={() => removeCounter(counter)}
                   disabled={isServing || isOnlyCounter || removeLoading}
-                  className="rounded-lg border border-rose-300 px-3 py-2 text-sm font-semibold text-rose-700 disabled:cursor-not-allowed disabled:opacity-60 dark:border-rose-800 dark:text-rose-300"
+                  className="rounded-xl border border-rose-300 px-3 py-2 text-sm font-semibold text-rose-700 transition duration-200 hover:-translate-y-0.5 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-rose-800 dark:text-rose-300 dark:hover:bg-rose-900/30"
                 >
                   Remove
                 </button>
               </div>
               {isServing ? (
-                <p className="mt-2 text-xs font-medium text-amber-700 dark:text-amber-300">
+                <p className="mt-2 rounded-lg bg-amber-100/70 px-2 py-1 text-xs font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
                   Serving now: rename/remove blocked until this counter is free.
                 </p>
               ) : null}
               {!isServing && isOnlyCounter ? (
-                <p className="mt-2 text-xs font-medium text-slate-500 dark:text-slate-400">
+                <p className="mt-2 text-xs font-medium text-soft">
                   At least one active counter is required.
                 </p>
               ) : null}
