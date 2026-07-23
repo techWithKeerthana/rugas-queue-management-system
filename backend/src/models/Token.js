@@ -15,6 +15,11 @@ const actionSnapshotSchema = new mongoose.Schema(
     previousServedAt: Date,
     previousCompletedAt: Date,
     previousCancelledAt: Date,
+    previousAssignedCounter: {
+      type: String,
+      trim: true,
+      default: null,
+    },
     actedAt: Date,
   },
   { _id: false }
@@ -66,6 +71,11 @@ const tokenSchema = new mongoose.Schema(
     servedAt: Date,
     completedAt: Date,
     cancelledAt: Date,
+    assignedCounter: {
+      type: String,
+      trim: true,
+      default: null,
+    },
     actionSnapshot: actionSnapshotSchema,
   },
   { timestamps: true }

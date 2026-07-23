@@ -13,6 +13,7 @@ jest.mock("../src/services/aiInsightsService", () => ({
 
 const createApp = require("../src/app");
 const { connectDB, disconnectDB } = require("../src/config/db");
+const Queue = require("../src/models/Queue");
 const Token = require("../src/models/Token");
 const { safeEmitToQueue } = require("../src/config/socket");
 const { resetPublicRateLimiters } = require("../src/middleware/rateLimiters");
@@ -164,6 +165,463 @@ describe("Queue token business logic", () => {
     expect(dbToken.status).toBe("waiting");
     expect(dbToken.servedAt).toBeFalsy();
     expect(dbToken.cancelledAt).toBeFalsy();
+  });
+
+  test("legacy single-counter queues (no counters field) keep serve-top behavior unchanged", async () => {
+    const token = await createAuthedUser();
+    const queue = await createQueue(token, "Legacy Single Counter");
+
+    await Queue.updateOne({ _id: queue._id }, { $unset: { counters: 1 } });
+
+    await addToken(token, queue._id, "Legacy One", "normal");
+    await addToken(token, queue._id, "Legacy Two", "normal");
+
+    const firstServe = await request(app)
+      .patch(`/api/queues/${queue._id}/tokens/serve-top`)
+      .set("Authorization", `Bearer ${token}`)
+      .send();
+
+    expect(firstServe.status).toBe(200);
+    const servingAfterFirst = firstServe.body.tokens.filter((t) => t.status === "serving");
+    expect(servingAfterFirst).toHaveLength(1);
+    expect(servingAfterFirst[0].personName).toBe("Legacy One");
+
+    const secondServe = await request(app)
+      .patch(`/api/queues/${queue._id}/tokens/serve-top`)
+      .set("Authorization", `Bearer ${token}`)
+      .send();
+
+    expect(secondServe.status).toBe(409);
+    expect(secondServe.body.message).toBe("A token is already being served");
+  });
+
+  test("multi-counter queues assign next free counter on serve-top", async () => {
+    const token = await createAuthedUser();
+    const queue = await createQueue(token, "Multi Counter Queue");
+
+    await Queue.updateOne(
+      { _id: queue._id },
+      {
+        $set: {
+          counters: [
+            { name: "Counter A", isActive: true },
+            { name: "Counter B", isActive: true },
+          ],
+        },
+      }
+    );
+
+    await addToken(token, queue._id, "Person 1", "normal");
+    await addToken(token, queue._id, "Person 2", "normal");
+
+    const firstServe = await request(app)
+      .patch(`/api/queues/${queue._id}/tokens/serve-top`)
+      .set("Authorization", `Bearer ${token}`)
+      .send();
+    expect(firstServe.status).toBe(200);
+
+    const secondServe = await request(app)
+      .patch(`/api/queues/${queue._id}/tokens/serve-top`)
+      .set("Authorization", `Bearer ${token}`)
+      .send();
+    expect(secondServe.status).toBe(200);
+
+    const dbServing = await Token.find({ queueId: queue._id, status: "serving" }).sort({ tokenNumber: 1 }).lean();
+    expect(dbServing).toHaveLength(2);
+    expect(dbServing[0].assignedCounter).toBe("Counter A");
+    expect(dbServing[1].assignedCounter).toBe("Counter B");
+  });
+
+  test("serve-top returns conflict when all counters are busy", async () => {
+    const token = await createAuthedUser();
+    const queue = await createQueue(token, "Busy Counters Queue");
+
+    await Queue.updateOne(
+      { _id: queue._id },
+      {
+        $set: {
+          counters: [
+            { name: "Counter A", isActive: true },
+            { name: "Counter B", isActive: true },
+          ],
+        },
+      }
+    );
+
+    await addToken(token, queue._id, "Busy 1", "normal");
+    await addToken(token, queue._id, "Busy 2", "normal");
+    await addToken(token, queue._id, "Busy 3", "normal");
+
+    await request(app).patch(`/api/queues/${queue._id}/tokens/serve-top`).set("Authorization", `Bearer ${token}`).send();
+    await request(app).patch(`/api/queues/${queue._id}/tokens/serve-top`).set("Authorization", `Bearer ${token}`).send();
+
+    const blockedServe = await request(app)
+      .patch(`/api/queues/${queue._id}/tokens/serve-top`)
+      .set("Authorization", `Bearer ${token}`)
+      .send();
+
+    expect(blockedServe.status).toBe(409);
+    expect(blockedServe.body.message).toMatch(/all counters are currently busy/i);
+  });
+
+  test("complete a serving token frees its counter and next serve-top reuses it", async () => {
+    const token = await createAuthedUser();
+    const queue = await createQueue(token, "Complete Frees Counter Queue");
+
+    await Queue.updateOne(
+      { _id: queue._id },
+      {
+        $set: {
+          counters: [{ name: "Counter A", isActive: true }],
+        },
+      }
+    );
+
+    await addToken(token, queue._id, "First", "normal");
+    await addToken(token, queue._id, "Second", "normal");
+
+    const firstServe = await request(app)
+      .patch(`/api/queues/${queue._id}/tokens/serve-top`)
+      .set("Authorization", `Bearer ${token}`)
+      .send();
+    const firstServing = firstServe.body.tokens.find((t) => t.status === "serving");
+    expect(firstServing.assignedCounter).toBe("Counter A");
+
+    const completeRes = await request(app)
+      .patch(`/api/queues/${queue._id}/tokens/${firstServing._id}/complete`)
+      .set("Authorization", `Bearer ${token}`)
+      .send();
+    expect(completeRes.status).toBe(200);
+
+    const completedDb = await Token.findById(firstServing._id).lean();
+    expect(completedDb.status).toBe("completed");
+    expect(completedDb.assignedCounter).toBeNull();
+
+    const secondServe = await request(app)
+      .patch(`/api/queues/${queue._id}/tokens/serve-top`)
+      .set("Authorization", `Bearer ${token}`)
+      .send();
+    expect(secondServe.status).toBe(200);
+
+    const secondServing = secondServe.body.tokens.find((t) => t.personName === "Second");
+    expect(secondServing.status).toBe("serving");
+    expect(secondServing.assignedCounter).toBe("Counter A");
+  });
+
+  test("cancel a serving token frees its counter", async () => {
+    const token = await createAuthedUser();
+    const queue = await createQueue(token, "Cancel Serving Frees Counter Queue");
+
+    await Queue.updateOne(
+      { _id: queue._id },
+      {
+        $set: {
+          counters: [{ name: "Counter A", isActive: true }],
+        },
+      }
+    );
+
+    await addToken(token, queue._id, "First", "normal");
+    await addToken(token, queue._id, "Second", "normal");
+
+    const firstServe = await request(app)
+      .patch(`/api/queues/${queue._id}/tokens/serve-top`)
+      .set("Authorization", `Bearer ${token}`)
+      .send();
+    const firstServing = firstServe.body.tokens.find((t) => t.status === "serving");
+    expect(firstServing.assignedCounter).toBe("Counter A");
+
+    const cancelRes = await request(app)
+      .patch(`/api/queues/${queue._id}/tokens/${firstServing._id}/cancel`)
+      .set("Authorization", `Bearer ${token}`)
+      .send();
+    expect(cancelRes.status).toBe(200);
+
+    const cancelledDb = await Token.findById(firstServing._id).lean();
+    expect(cancelledDb.status).toBe("cancelled");
+    expect(cancelledDb.assignedCounter).toBeNull();
+
+    const secondServe = await request(app)
+      .patch(`/api/queues/${queue._id}/tokens/serve-top`)
+      .set("Authorization", `Bearer ${token}`)
+      .send();
+    expect(secondServe.status).toBe(200);
+
+    const secondServing = secondServe.body.tokens.find((t) => t.personName === "Second");
+    expect(secondServing.status).toBe("serving");
+    expect(secondServing.assignedCounter).toBe("Counter A");
+  });
+
+  test("cancel a waiting token keeps counters unchanged", async () => {
+    const token = await createAuthedUser();
+    const queue = await createQueue(token, "Cancel Waiting No Counter Effects Queue");
+
+    await Queue.updateOne(
+      { _id: queue._id },
+      {
+        $set: {
+          counters: [
+            { name: "Counter A", isActive: true },
+            { name: "Counter B", isActive: true },
+          ],
+        },
+      }
+    );
+
+    await addToken(token, queue._id, "Serving One", "normal");
+    await addToken(token, queue._id, "Waiting Two", "normal");
+
+    const serveRes = await request(app)
+      .patch(`/api/queues/${queue._id}/tokens/serve-top`)
+      .set("Authorization", `Bearer ${token}`)
+      .send();
+    const servingToken = serveRes.body.tokens.find((t) => t.personName === "Serving One");
+    const waitingToken = serveRes.body.tokens.find((t) => t.personName === "Waiting Two");
+    expect(servingToken.assignedCounter).toBe("Counter A");
+    expect(waitingToken.assignedCounter).toBeNull();
+
+    const cancelWaitingRes = await request(app)
+      .patch(`/api/queues/${queue._id}/tokens/${waitingToken._id}/cancel`)
+      .set("Authorization", `Bearer ${token}`)
+      .send();
+    expect(cancelWaitingRes.status).toBe(200);
+
+    const servingDb = await Token.findById(servingToken._id).lean();
+    const cancelledWaitingDb = await Token.findById(waitingToken._id).lean();
+    expect(servingDb.status).toBe("serving");
+    expect(servingDb.assignedCounter).toBe("Counter A");
+    expect(cancelledWaitingDb.status).toBe("cancelled");
+    expect(cancelledWaitingDb.assignedCounter).toBeNull();
+  });
+
+  test("undo completed token restores serving state and re-occupies prior counter", async () => {
+    const token = await createAuthedUser();
+    const queue = await createQueue(token, "Undo Complete Restores Counter Queue");
+
+    await Queue.updateOne(
+      { _id: queue._id },
+      {
+        $set: {
+          counters: [
+            { name: "Counter A", isActive: true },
+            { name: "Counter B", isActive: true },
+          ],
+        },
+      }
+    );
+
+    await addToken(token, queue._id, "First", "normal");
+    await addToken(token, queue._id, "Second", "normal");
+
+    const serveFirstRes = await request(app)
+      .patch(`/api/queues/${queue._id}/tokens/serve-top`)
+      .set("Authorization", `Bearer ${token}`)
+      .send();
+    const firstServing = serveFirstRes.body.tokens.find((t) => t.personName === "First");
+    expect(firstServing.assignedCounter).toBe("Counter A");
+
+    const completeRes = await request(app)
+      .patch(`/api/queues/${queue._id}/tokens/${firstServing._id}/complete`)
+      .set("Authorization", `Bearer ${token}`)
+      .send();
+    expect(completeRes.status).toBe(200);
+
+    const undoRes = await request(app)
+      .patch(`/api/queues/${queue._id}/tokens/${firstServing._id}/undo`)
+      .set("Authorization", `Bearer ${token}`)
+      .send();
+    expect(undoRes.status).toBe(200);
+
+    const restoredDb = await Token.findById(firstServing._id).lean();
+    expect(restoredDb.status).toBe("serving");
+    expect(restoredDb.assignedCounter).toBe("Counter A");
+
+    const serveSecondRes = await request(app)
+      .patch(`/api/queues/${queue._id}/tokens/serve-top`)
+      .set("Authorization", `Bearer ${token}`)
+      .send();
+    expect(serveSecondRes.status).toBe(200);
+
+    const secondServingDb = await Token.findOne({ queueId: queue._id, personName: "Second" }).lean();
+    expect(secondServingDb.status).toBe("serving");
+    expect(secondServingDb.assignedCounter).toBe("Counter B");
+  });
+
+  test("undo cancelled serving token restores serving state and re-occupies prior counter", async () => {
+    const token = await createAuthedUser();
+    const queue = await createQueue(token, "Undo Cancel Restores Counter Queue");
+
+    await Queue.updateOne(
+      { _id: queue._id },
+      {
+        $set: {
+          counters: [
+            { name: "Counter A", isActive: true },
+            { name: "Counter B", isActive: true },
+          ],
+        },
+      }
+    );
+
+    await addToken(token, queue._id, "First", "normal");
+    await addToken(token, queue._id, "Second", "normal");
+
+    const serveFirstRes = await request(app)
+      .patch(`/api/queues/${queue._id}/tokens/serve-top`)
+      .set("Authorization", `Bearer ${token}`)
+      .send();
+    const firstServing = serveFirstRes.body.tokens.find((t) => t.personName === "First");
+    expect(firstServing.assignedCounter).toBe("Counter A");
+
+    const cancelRes = await request(app)
+      .patch(`/api/queues/${queue._id}/tokens/${firstServing._id}/cancel`)
+      .set("Authorization", `Bearer ${token}`)
+      .send();
+    expect(cancelRes.status).toBe(200);
+
+    const undoRes = await request(app)
+      .patch(`/api/queues/${queue._id}/tokens/${firstServing._id}/undo`)
+      .set("Authorization", `Bearer ${token}`)
+      .send();
+    expect(undoRes.status).toBe(200);
+
+    const restoredDb = await Token.findById(firstServing._id).lean();
+    expect(restoredDb.status).toBe("serving");
+    expect(restoredDb.assignedCounter).toBe("Counter A");
+
+    const serveSecondRes = await request(app)
+      .patch(`/api/queues/${queue._id}/tokens/serve-top`)
+      .set("Authorization", `Bearer ${token}`)
+      .send();
+    expect(serveSecondRes.status).toBe(200);
+
+    const secondServingDb = await Token.findOne({ queueId: queue._id, personName: "Second" }).lean();
+    expect(secondServingDb.status).toBe("serving");
+    expect(secondServingDb.assignedCounter).toBe("Counter B");
+  });
+
+  test("manager can add a counter to a queue", async () => {
+    const token = await createAuthedUser();
+    const queue = await createQueue(token, "Add Counter Queue");
+
+    const addCounterRes = await request(app)
+      .post(`/api/queues/${queue._id}/counters`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ name: "Counter 2" });
+
+    expect(addCounterRes.status).toBe(201);
+    const counterNames = addCounterRes.body.queue.counters.map((item) => item.name);
+    expect(counterNames).toEqual(expect.arrayContaining(["Counter 1", "Counter 2"]));
+    expect(addCounterRes.body.queue.counters.every((item) => Boolean(item._id))).toBe(true);
+  });
+
+  test("manager can rename a counter when no token is serving there", async () => {
+    const token = await createAuthedUser();
+    const queue = await createQueue(token, "Rename Counter Queue");
+
+    const addCounterRes = await request(app)
+      .post(`/api/queues/${queue._id}/counters`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ name: "Counter 2" });
+    expect(addCounterRes.status).toBe(201);
+
+    const counterToRename = addCounterRes.body.queue.counters.find((item) => item.name === "Counter 2");
+
+    const renameRes = await request(app)
+      .patch(`/api/queues/${queue._id}/counters/${counterToRename._id}`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ name: "Front Desk" });
+
+    expect(renameRes.status).toBe(200);
+    const renamed = renameRes.body.queue.counters.find((item) => item._id === counterToRename._id);
+    expect(renamed.name).toBe("Front Desk");
+  });
+
+  test("manager can remove a counter when no token is serving there", async () => {
+    const token = await createAuthedUser();
+    const queue = await createQueue(token, "Remove Counter Queue");
+
+    const addCounterRes = await request(app)
+      .post(`/api/queues/${queue._id}/counters`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ name: "Counter 2" });
+    expect(addCounterRes.status).toBe(201);
+
+    const counterToRemove = addCounterRes.body.queue.counters.find((item) => item.name === "Counter 2");
+
+    const removeRes = await request(app)
+      .delete(`/api/queues/${queue._id}/counters/${counterToRemove._id}`)
+      .set("Authorization", `Bearer ${token}`)
+      .send();
+
+    expect(removeRes.status).toBe(200);
+    expect(removeRes.body.queue.counters.some((item) => item._id === counterToRemove._id)).toBe(false);
+  });
+
+  test("rename counter is blocked when that counter has an active serving token", async () => {
+    const token = await createAuthedUser();
+    const queue = await createQueue(token, "Blocked Rename Counter Queue");
+
+    await Queue.updateOne(
+      { _id: queue._id },
+      {
+        $set: {
+          counters: [
+            { name: "Counter A", isActive: true },
+            { name: "Counter B", isActive: true },
+          ],
+        },
+      }
+    );
+
+    await addToken(token, queue._id, "Serving Person", "normal");
+    await request(app).patch(`/api/queues/${queue._id}/tokens/serve-top`).set("Authorization", `Bearer ${token}`).send();
+
+    const queueRes = await request(app)
+      .get(`/api/queues/${queue._id}`)
+      .set("Authorization", `Bearer ${token}`);
+    const counterA = queueRes.body.queue.counters.find((item) => item.name === "Counter A");
+
+    const renameRes = await request(app)
+      .patch(`/api/queues/${queue._id}/counters/${counterA._id}`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ name: "Counter A Renamed" });
+
+    expect(renameRes.status).toBe(409);
+    expect(renameRes.body.message).toMatch(/cannot modify counter/i);
+  });
+
+  test("remove counter is blocked when that counter has an active serving token", async () => {
+    const token = await createAuthedUser();
+    const queue = await createQueue(token, "Blocked Remove Counter Queue");
+
+    await Queue.updateOne(
+      { _id: queue._id },
+      {
+        $set: {
+          counters: [
+            { name: "Counter A", isActive: true },
+            { name: "Counter B", isActive: true },
+          ],
+        },
+      }
+    );
+
+    await addToken(token, queue._id, "Serving Person", "normal");
+    await request(app).patch(`/api/queues/${queue._id}/tokens/serve-top`).set("Authorization", `Bearer ${token}`).send();
+
+    const queueRes = await request(app)
+      .get(`/api/queues/${queue._id}`)
+      .set("Authorization", `Bearer ${token}`);
+    const counterA = queueRes.body.queue.counters.find((item) => item.name === "Counter A");
+
+    const removeRes = await request(app)
+      .delete(`/api/queues/${queue._id}/counters/${counterA._id}`)
+      .set("Authorization", `Bearer ${token}`)
+      .send();
+
+    expect(removeRes.status).toBe(409);
+    expect(removeRes.body.message).toMatch(/cannot modify counter/i);
   });
 
   test("reorder persists exact waiting positions", async () => {
@@ -445,6 +903,14 @@ describe("Queue token business logic", () => {
     const trackedToken = aState.tokens.find((item) => item.personName === "Tracked Person");
     const otherQueueToken = bState.tokens.find((item) => item.personName === "Other Queue Person");
 
+    const servedRes = await request(app)
+      .patch(`/api/queues/${queueA._id}/tokens/serve-top`)
+      .set("Authorization", `Bearer ${token}`)
+      .send();
+
+    const servedToken = servedRes.body.tokens.find((item) => item._id === trackedToken._id);
+    expect(servedToken.status).toBe("serving");
+
     const publicRes = await request(app).get(`/api/public/track/${queueA._id}/${trackedToken._id}`);
 
     expect(publicRes.status).toBe(200);
@@ -454,11 +920,13 @@ describe("Queue token business logic", () => {
       queueId: queueA._id.toString(),
       tokenId: trackedToken._id,
       tokenNumber: trackedToken.tokenNumber,
-      status: trackedToken.status,
+      status: "serving",
+      assignedCounter: servedToken.assignedCounter,
     });
     expect(publicRes.body.tracking).toHaveProperty("positionInQueue");
     expect(publicRes.body.tracking).toHaveProperty("estimatedWaitSeconds");
     expect(publicRes.body.tracking).toHaveProperty("lastUpdatedAt");
+    expect(publicRes.body.tracking.assignedCounter).toBeTruthy();
     expect(publicRes.body.tracking).not.toHaveProperty("personName");
     expect(publicRes.text).not.toContain("Other Person");
     expect(publicRes.text).not.toContain("Other Queue Person");

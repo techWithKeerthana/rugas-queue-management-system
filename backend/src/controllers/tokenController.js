@@ -73,6 +73,23 @@ async function buildTokenResponse(queueId, options = {}) {
   };
 }
 
+function getEffectiveCounterNames(queue) {
+  if (!Array.isArray(queue.counters) || queue.counters.length === 0) {
+    return ["Counter 1"];
+  }
+
+  const activeCounterNames = queue.counters
+    .filter((counter) => counter && counter.isActive !== false)
+    .map((counter) => String(counter.name || "").trim())
+    .filter(Boolean);
+
+  if (activeCounterNames.length === 0) {
+    return ["Counter 1"];
+  }
+
+  return activeCounterNames;
+}
+
 const listTokens = asyncHandler(async (req, res) => {
   const queue = await getOwnedQueue(req.params.queueId, req.user.id);
   const payload = await buildTokenResponse(queue._id, {
@@ -160,9 +177,35 @@ const serveTopToken = asyncHandler(async (req, res) => {
   const queue = await getOwnedQueue(req.params.queueId, req.user.id);
   assertQueueMutable(queue);
 
-  const activeServing = await Token.findOne({ queueId: queue._id, status: TOKEN_STATUS.SERVING });
-  if (activeServing) {
-    throw httpError(409, "A token is already being served");
+  const counterNames = getEffectiveCounterNames(queue);
+  const activeServingTokens = await Token.find({ queueId: queue._id, status: TOKEN_STATUS.SERVING })
+    .select("assignedCounter createdAt")
+    .lean();
+
+  let assignedCounter = counterNames[0];
+
+  if (counterNames.length === 1) {
+    if (activeServingTokens.length > 0) {
+      throw httpError(409, "A token is already being served");
+    }
+  } else {
+    const occupiedCounters = new Set(
+      activeServingTokens
+        .map((token) => (token.assignedCounter || "").trim())
+        .filter((name) => counterNames.includes(name))
+    );
+
+    // Legacy serving tokens may not have an assigned counter; treat one as occupying the first counter.
+    const hasLegacyUnassignedServing = activeServingTokens.some((token) => !(token.assignedCounter || "").trim());
+    if (hasLegacyUnassignedServing) {
+      occupiedCounters.add(counterNames[0]);
+    }
+
+    const nextFreeCounter = counterNames.find((name) => !occupiedCounters.has(name));
+    if (!nextFreeCounter) {
+      throw httpError(409, "All counters are currently busy");
+    }
+    assignedCounter = nextFreeCounter;
   }
 
   const top = await Token.findOne({ queueId: queue._id, status: TOKEN_STATUS.WAITING }).sort({ position: 1, createdAt: 1 });
@@ -177,10 +220,12 @@ const serveTopToken = asyncHandler(async (req, res) => {
     previousServedAt: top.servedAt,
     previousCompletedAt: top.completedAt,
     previousCancelledAt: top.cancelledAt,
+    previousAssignedCounter: top.assignedCounter,
     actedAt: new Date(),
   };
   top.status = TOKEN_STATUS.SERVING;
   top.servedAt = new Date();
+  top.assignedCounter = assignedCounter;
   await top.save();
 
   await renumberWaitingPositions(queue._id);
@@ -218,10 +263,12 @@ const completeToken = asyncHandler(async (req, res) => {
     previousServedAt: token.servedAt,
     previousCompletedAt: token.completedAt,
     previousCancelledAt: token.cancelledAt,
+    previousAssignedCounter: token.assignedCounter,
     actedAt: new Date(),
   };
   token.status = TOKEN_STATUS.COMPLETED;
   token.completedAt = new Date();
+  token.assignedCounter = null;
   await token.save();
 
   safeEmitToQueue(queue._id.toString(), "token:statusChanged", { action: "complete", queueId: queue._id.toString(), tokenId: token._id.toString() });
@@ -257,10 +304,12 @@ const cancelToken = asyncHandler(async (req, res) => {
     previousServedAt: token.servedAt,
     previousCompletedAt: token.completedAt,
     previousCancelledAt: token.cancelledAt,
+    previousAssignedCounter: token.assignedCounter,
     actedAt: new Date(),
   };
   token.status = TOKEN_STATUS.CANCELLED;
   token.cancelledAt = new Date();
+  token.assignedCounter = null;
   await token.save();
 
   if (token.actionSnapshot.previousStatus === TOKEN_STATUS.WAITING) {
@@ -296,11 +345,28 @@ const undoTokenAction = asyncHandler(async (req, res) => {
   }
 
   const snapshot = token.actionSnapshot;
+
+  if (snapshot.previousStatus === TOKEN_STATUS.SERVING && snapshot.previousAssignedCounter) {
+    const occupyingToken = await Token.findOne({
+      _id: { $ne: token._id },
+      queueId: queue._id,
+      status: TOKEN_STATUS.SERVING,
+      assignedCounter: snapshot.previousAssignedCounter,
+    })
+      .select("_id")
+      .lean();
+
+    if (occupyingToken) {
+      throw httpError(409, `Counter ${snapshot.previousAssignedCounter} is currently occupied`);
+    }
+  }
+
   token.status = snapshot.previousStatus;
   token.position = snapshot.previousPosition;
   token.servedAt = snapshot.previousServedAt || null;
   token.completedAt = snapshot.previousCompletedAt || null;
   token.cancelledAt = snapshot.previousCancelledAt || null;
+  token.assignedCounter = snapshot.previousAssignedCounter || null;
   token.actionSnapshot = null;
   await token.save();
 

@@ -1,326 +1,373 @@
-# Queue Management System - Full Handoff Context (For New Chat)
+# Queue Management System - Clean Handoff (Current Source of Truth)
 
-This document is a complete project handoff so a new AI assistant can continue work without asking for historical context.
+This document is intended for a brand-new AI assistant with zero prior context.
+It captures the current project state, architecture, APIs, test coverage, deployment, caveats, and immediate next steps.
 
 ## 1) Project Summary
 
-- Project: Full-stack Queue Management System (internship assignment)
-- Repo root: `D:\Rugas`
-- Stack:
-  - Frontend: React + Vite + Tailwind + Recharts + dnd-kit + socket.io-client
-  - Backend: Node.js + Express + Mongoose + JWT + bcrypt + Socket.io
-  - DB: MongoDB Atlas (currently using non-SRV URI due DNS SRV issue on this machine)
-  - Testing: Jest + Supertest + mongodb-memory-server-core
-- Branch: `master`
+- Project: full-stack Queue Management System
+- Repository root: D:\Rugas
+- Current branch: feat/multi-counter
+- Deployment targets:
+  - Backend: Render (Node + Express + Socket.io + MongoDB Atlas)
+  - Frontend: Vercel (React + Vite + Tailwind)
+- Core goal: manager queue operations with real-time updates, plus public no-login queue join/tracking
 
-## 2) What Is Implemented
+## 2) Architecture Overview
 
-### Tier 1 (Complete and tested)
-- JWT auth: register/login/logout/me
-- Queue CRUD (manager-scoped unique names)
-- Token CRUD/state flow: waiting, serving, completed, cancelled
-- Priority insertion (emergency > vip > senior > normal)
-- Drag-and-drop reorder with persisted positions
-- Serve top, cancel, complete, undo
-- Estimated wait time + live serving timer
-- Real-time updates with Socket.io events
-- Analytics dashboard:
-  - KPI cards
-  - avg wait/service
-  - longest waiting token
-  - queue trend chart
-  - status distribution chart
-  - hourly traffic chart
-- Seed script and README setup docs
+### Backend
+- Runtime: Node.js + Express
+- Database: MongoDB Atlas via Mongoose
+- Auth: JWT bearer tokens
+- Realtime: Socket.io
+  - Manager sockets join queue rooms: queue:<queueId>
+  - Public tracking sockets use restricted mode and join: public:queue:<queueId>
+  - Public sockets receive invalidation signals only (no sensitive payload broadcast)
+- Security/middleware:
+  - helmet, CORS allowlist, auth middleware, validation middleware
+  - rate limits on public endpoints
 
-### Tier 2 (Complete and tested)
-- Token search by token number / token id / person name
+### Frontend
+- Framework: React + Vite
+- Styling: Tailwind CSS
+- Routing: react-router-dom
+- Realtime client: socket.io-client
+- Manager area protected by auth
+- Public routes for join and tracking do not require login
+
+### Integrations
+- Gemini AI insights for analytics summaries (cached + timeout/fallback)
+
+## 3) Feature Status
+
+### Tier 1 (Complete)
+- JWT auth: register, login, logout, me
+- Queue management CRUD (manager scoped)
+- Token lifecycle: waiting, serving, completed, cancelled
+- Priority insertion: emergency > vip > senior > normal
+- Reorder waiting tokens with drag-and-drop
+- Serve-top, complete, cancel, undo
+- Estimated wait time calculations
+- Realtime updates via Socket.io
+- Analytics dashboard core metrics/charts
+
+### Tier 2 (Complete)
+- Token search (name, token number, token id)
 - Token pagination
-- Duplicate active-token detection on add
-- Queue capacity limits and enforcement
-- Daily/weekly/monthly analytics report endpoints
+- Duplicate active-token name protection
+- Queue capacity enforcement
+- Daily/weekly/monthly analytics reports
 - CSV/PDF export endpoints
-- Dark/Light mode toggle
-- Profile dropdown (manager info + logout)
+- Theme toggle (dark/light)
+- Profile menu/logout UX
 
-### Tier 3 (Complete and tested)
-- AI Queue Insights using Gemini
-  - Backend endpoint generates insights from queue analytics context
-  - Caching per queue+manager
-  - Re-generate on `refresh=true` or after cache expires (1 hour)
-  - Graceful fallback when API fails/times out/rate-limits:
-    - return friendly unavailable message
-    - serve stale cache if available
-- Queue history archive (soft close)
-  - Archive/unarchive queues
-  - Active/archived/all queue filtering
-  - Archived queues cannot be modified
-- Activity Logs
-  - Logs manager actions (queue/token operations)
-  - Activity logs API with pagination
-  - Frontend Activity page
+### Tier 3 (Complete)
+- AI insights endpoint backed by Gemini
+- Insight caching and refresh behavior
+- Timeout/failure graceful fallback
+- Queue archive/unarchive + filtered listing
+- Archived queue mutability protection
+- Activity logs endpoint + UI page
 
-### Public Customer Tracking (Complete and tested)
-- Public no-login token status page
-- Backend endpoint: `GET /api/public/track/:queueId/:tokenId`
-- Frontend page: `/track/:queueId/:tokenId`
-- Returns customer-safe fields only:
-  - token number
-  - status
-  - current queue position
-  - estimated wait time
-  - last updated timestamp
-- Reuses existing token ordering and queue wait-time logic
-- Public endpoint is rate-limited
-- Real-time refresh uses a restricted public Socket.io subscription that only receives invalidation events, not token payloads
+### Public Customer Features (Complete)
+- Public tracking page: /track/:queueId/:tokenId
+- Public join page: /join/:queueId
+- Public join via QR shown in manager queue detail
+- Public tracking payload includes assignedCounter for serving-state direction text
+- Browser notifications on public tracking page for:
+  - token is next in line
+  - token is now serving
 
-## 3) Current Key Files and Responsibilities
+### Multi-counter Support (Complete)
+- Status: 5 of 5 steps complete
+- Completed so far:
+  1. Schema support (Queue counters, Token assignedCounter, snapshot previousAssignedCounter)
+  2. serve-top auto-assign to next free active counter with legacy single-counter fallback
+  3. complete/cancel/undo counter-state handling with conflict guard on undo restore
+  4. Public tracking page shows "Go to Counter X" when token is serving
+  5. Manager counter-management API + UI (add, rename, remove with serving-counter safety blocks)
 
-### Backend Core
-- `backend/src/app.js`: app wiring + protected routes + public tracking route
-- `backend/src/server.js`: server bootstrap + Socket.io + env validation + restricted public track socket mode
-- `backend/src/config/env.js`: required env vars validation
-- `backend/src/config/db.js`: mongoose connect/disconnect
-- `backend/src/config/socket.js`: manager queue emits + public tracking invalidation emits
+## 4) Multi-counter Rules and Decisions (Current)
 
-### Backend Models
-- `backend/src/models/User.js`
-- `backend/src/models/Queue.js` (capacity, archive fields)
-- `backend/src/models/Token.js`
-- `backend/src/models/AIInsightCache.js`
-- `backend/src/models/ActivityLog.js`
+- Legacy queue fallback:
+  - If queue has no counters field (legacy data) or no active counters, behavior falls back to a single implicit counter (Counter 1).
+  - Legacy single-counter behavior remains unchanged (second serve-top while one is serving returns conflict).
+- serve-top behavior with multi-counter:
+  - Assigns top waiting token to next free active counter by configured order.
+  - Returns HTTP 409 with explicit message when all counters are busy.
+- complete/cancel behavior:
+  - Clears assignedCounter so the counter becomes free.
+- undo behavior:
+  - Restores assignedCounter from previousAssignedCounter snapshot.
+  - Prevents double assignment: returns HTTP 409 if the prior counter is already occupied by another serving token.
+- Counter rename/removal safety decision:
+  - Rename/removal of a counter with an actively serving token should be blocked.
+  - This is now enforced at backend API level and reflected in manager UI disabled/error states.
 
-### Backend Controllers
-- `backend/src/controllers/authController.js`
-- `backend/src/controllers/queueController.js`
-  - create/list/get/delete + archive/unarchive
-- `backend/src/controllers/tokenController.js`
-  - list/add/reorder/serve/complete/cancel/undo
-  - duplicate detection, capacity checks, search/pagination
-  - archive mutability guard
-  - activity logging
-- `backend/src/controllers/analyticsController.js`
-  - KPI endpoints
-  - report endpoints (daily/weekly/monthly)
-  - CSV/PDF export
-  - AI insights endpoint (cache + refresh + graceful fallback)
-- `backend/src/controllers/activityLogController.js`
-  - paginated logs listing
-- `backend/src/controllers/publicTrackController.js`
-  - public customer-safe token tracking payload
+## 5) Current API Surface
 
-### Backend Services
-- `backend/src/services/aiInsightsService.js`
-  - Gemini SDK integration (`@google/generative-ai`)
-  - prompt formatting + text extraction
-- `backend/src/services/activityLogService.js`
-  - reusable activity logger
+Base backend URL (prod): https://queueflow-backend-fk17.onrender.com
 
-### Backend Routes
-- `backend/src/routes/authRoutes.js`
-- `backend/src/routes/publicTrackRoutes.js`
-- `backend/src/routes/queueRoutes.js`
-- `backend/src/routes/tokenRoutes.js`
-- `backend/src/routes/analyticsRoutes.js`
-- `backend/src/routes/activityLogRoutes.js`
-
-### Frontend Pages
-- `frontend/src/pages/LoginPage.jsx`
-- `frontend/src/pages/RegisterPage.jsx`
-- `frontend/src/pages/TrackTokenPage.jsx`
-- `frontend/src/pages/QueuesPage.jsx`
-  - active/archived/all filters
-  - create queue with optional capacity
-  - archive/unarchive
-- `frontend/src/pages/QueueDetailPage.jsx`
-  - token add/serve/cancel/undo/complete
-  - search + pagination
-  - DnD reorder (disabled when filtered/paginated)
-- `frontend/src/pages/AnalyticsPage.jsx`
-  - Tier 1 charts/KPIs
-  - Tier 2 report period + export buttons
-  - Tier 3 AI insights panel + refresh button + graceful message states
-- `frontend/src/pages/ActivityLogsPage.jsx`
-
-### Frontend API Clients
-- `frontend/src/api/client.js`
-- `frontend/src/api/authApi.js`
-- `frontend/src/api/queueApi.js`
-- `frontend/src/api/tokenApi.js`
-- `frontend/src/api/analyticsApi.js`
-- `frontend/src/api/activityLogApi.js`
-
-### Frontend Context and Layout
-- `frontend/src/context/AuthContext.jsx`
-- `frontend/src/context/ThemeContext.jsx`
-- `frontend/src/components/layout/AppShell.jsx`
-- `frontend/src/hooks/usePublicTrackSocket.js`
-
-## 4) Environment Setup
-
-### backend/.env.example currently includes
-- `PORT`
-- `MONGO_URI`
-- `JWT_SECRET`
-- `JWT_EXPIRES_IN`
-- `FRONTEND_ORIGIN`
-- `GEMINI_API_KEY`
-- `GEMINI_MODEL`
-- `INSIGHTS_TIMEOUT_MS`
-
-### Important runtime notes
-- `backend/src/config/env.js` requires at least:
-  - `MONGO_URI`
-  - `JWT_SECRET`
-- Gemini insights require:
-  - `GEMINI_API_KEY`
-- This machine/network had SRV DNS issues (`querySrv ECONNREFUSED`) with `mongodb+srv://`.
-  - Working solution used: non-SRV Atlas URI in `backend/.env`
-  - Root cause determined to be environment DNS resolver path, not app code.
-
-## 5) Commands
-
-From repo root (`D:\Rugas`):
-
-Install:
-- `npm install`
-- `cd backend && npm install`
-- `cd ../frontend && npm install`
-
-Run both apps:
-- `npm run dev`
-
-Run backend only:
-- `npm run dev --prefix backend`
-
-Run frontend only:
-- `npm run dev --prefix frontend`
-
-Seed data:
-- `cd backend`
-- `npm run seed`
-
-Tests:
-- `cd backend`
-- `npm test`
-
-Build frontend:
-- `cd frontend`
-- `npm run build`
-
-## 6) API Surface (current)
+### Health
+- GET /health
 
 ### Auth
-- `POST /api/auth/register`
-- `POST /api/auth/login`
-- `POST /api/auth/logout`
-- `GET /api/auth/me`
+- POST /api/auth/register
+- POST /api/auth/login
+- POST /api/auth/logout (protected)
+- GET /api/auth/me (protected)
 
-### Queues
-- `POST /api/queues`
-- `GET /api/queues?status=active|archived|all`
-- `GET /api/queues/:queueId`
-- `PATCH /api/queues/:queueId/archive`
-- `PATCH /api/queues/:queueId/unarchive`
-- `DELETE /api/queues/:queueId`
+### Queues (protected)
+- POST /api/queues
+- GET /api/queues?status=active|archived|all
+- GET /api/queues/:queueId
+- PATCH /api/queues/:queueId/archive
+- PATCH /api/queues/:queueId/unarchive
+- POST /api/queues/:queueId/counters
+- PATCH /api/queues/:queueId/counters/:counterId
+- DELETE /api/queues/:queueId/counters/:counterId
+- DELETE /api/queues/:queueId
 
-### Tokens
-- `GET /api/queues/:queueId/tokens?search=&page=&pageSize=`
-- `POST /api/queues/:queueId/tokens`
-- `PATCH /api/queues/:queueId/tokens/reorder`
-- `PATCH /api/queues/:queueId/tokens/serve-top`
-- `PATCH /api/queues/:queueId/tokens/:tokenId/complete`
-- `PATCH /api/queues/:queueId/tokens/:tokenId/cancel`
-- `PATCH /api/queues/:queueId/tokens/:tokenId/undo`
+### Tokens (protected)
+- GET /api/queues/:queueId/tokens?search=&page=&pageSize=
+- POST /api/queues/:queueId/tokens
+- PATCH /api/queues/:queueId/tokens/reorder
+- PATCH /api/queues/:queueId/tokens/serve-top
+- PATCH /api/queues/:queueId/tokens/:tokenId/complete
+- PATCH /api/queues/:queueId/tokens/:tokenId/cancel
+- PATCH /api/queues/:queueId/tokens/:tokenId/undo
 
-### Analytics
-- `GET /api/queues/:queueId/analytics/summary`
-- `GET /api/queues/:queueId/analytics/trend`
-- `GET /api/queues/:queueId/analytics/status-distribution`
-- `GET /api/queues/:queueId/analytics/hourly-traffic`
-- `GET /api/queues/:queueId/analytics/reports?period=daily|weekly|monthly&from=&to=`
-- `GET /api/queues/:queueId/analytics/reports/export.csv?period=...`
-- `GET /api/queues/:queueId/analytics/reports/export.pdf?period=...`
-- `GET /api/queues/:queueId/analytics/insights?refresh=true|false`
+### Analytics (protected)
+- GET /api/queues/:queueId/analytics/summary
+- GET /api/queues/:queueId/analytics/trend
+- GET /api/queues/:queueId/analytics/status-distribution
+- GET /api/queues/:queueId/analytics/hourly-traffic
+- GET /api/queues/:queueId/analytics/reports?period=daily|weekly|monthly&from=&to=
+- GET /api/queues/:queueId/analytics/reports/export.csv?period=...
+- GET /api/queues/:queueId/analytics/reports/export.pdf?period=...
+- GET /api/queues/:queueId/analytics/insights?refresh=true|false
 
-### Activity Logs
-- `GET /api/activity-logs?page=&pageSize=`
+### Activity Logs (protected)
+- GET /api/activity-logs?page=&pageSize=
 
-### Public Tracking
-- `GET /api/public/track/:queueId/:tokenId`
+### Public (no login)
+- POST /api/public/join/:queueId
+- GET /api/public/track/:queueId/:tokenId
 
-## 7) Real-time Events
+## 6) Current File Responsibilities
 
-Emitted server-side and consumed by frontend:
-- `token:added`
-- `token:reordered`
-- `token:served`
-- `token:cancelled`
-- `token:statusChanged`
-- `token:undone`
+### Backend app and server
+- backend/src/app.js
+  - Express app setup, CORS/helmet/json, route registration, error handlers
+- backend/src/server.js
+  - DB boot, Socket.io setup, manager/public-track socket auth modes, room joins
 
-Restricted public socket behavior:
-- Public tracking clients connect in a dedicated unauthenticated `public-track` mode
-- Server validates the `queueId` + `tokenId` pair before allowing the socket to join
-- Public clients join `public:queue:<queueId>` only
-- Public clients receive `public:track:invalidate` only
-- Public clients do not receive manager-room token event payloads
+### Backend configuration
+- backend/src/config/db.js
+  - Mongoose connect/disconnect helpers
+- backend/src/config/env.js
+  - Required env validation
+- backend/src/config/socket.js
+  - Socket.io setter + safe emit helpers for manager/public channels
 
-## 8) Tests Status
+### Backend models
+- backend/src/models/User.js
+  - Manager user identity/auth fields
+- backend/src/models/Queue.js
+  - Queue metadata, archive state, capacity, counters array
+- backend/src/models/Token.js
+  - Token state machine, timestamps, assignedCounter, actionSnapshot including previousAssignedCounter
+- backend/src/models/AIInsightCache.js
+  - Cached insight payloads for queues
+- backend/src/models/ActivityLog.js
+  - Manager activity audit entries
 
-- Backend tests are passing (13 tests).
-- Test file: `backend/tests/api.test.js`
-- Includes coverage for:
-  - priority ordering
-  - serve/cancel/undo transitions
-  - reorder persistence
-  - realtime emission
-  - duplicate detection
-  - capacity blocking
-  - search/pagination
-  - report/export behavior
-  - archived queue mutability blocking
-  - activity logs listing
-  - AI insights failure fallback
-  - AI insights slow-call timeout fallback
-  - public tracking safe-field response
-  - public tracking queue/token mismatch 404 behavior
+### Backend controllers
+- backend/src/controllers/authController.js
+  - Register/login/logout/me handlers
+- backend/src/controllers/queueController.js
+  - Queue create/list/get/delete/archive/unarchive and ownership checks
+  - Counter management handlers (add/rename/remove) with serving-counter 409 guard
+- backend/src/controllers/tokenController.js
+  - List/add/reorder/serve-top/complete/cancel/undo
+  - Multi-counter assignment and restoration logic (steps 2-3)
+- backend/src/controllers/analyticsController.js
+  - KPI metrics, reports, exports, AI insight endpoint
+- backend/src/controllers/activityLogController.js
+  - Paginated logs endpoint
+- backend/src/controllers/publicJoinController.js
+  - Public token join flow
+- backend/src/controllers/publicTrackController.js
+  - Public safe tracking payload
 
-## 9) Recent Commit History (key milestones)
+### Backend routes
+- backend/src/routes/authRoutes.js
+- backend/src/routes/queueRoutes.js
+- backend/src/routes/tokenRoutes.js
+- backend/src/routes/analyticsRoutes.js
+- backend/src/routes/activityLogRoutes.js
+- backend/src/routes/publicJoinRoutes.js
+- backend/src/routes/publicTrackRoutes.js
 
-- `4fee578` feat(frontend): add Tier 3 AI insights panel, archive queue views, and activity logs page
-- `584338b` feat(backend): add Tier 3 Gemini insights cache, queue archive, and activity logs
-- `e3cd944` feat(frontend): implement Tier 2 queue search/pagination, reports export, theme toggle, and profile menu
-- `17bec10` feat(backend): add Tier 2 token search/pagination, duplicate/capacity checks, and report exports
-- `548acd1` chore: update lockfile from dependency metadata during Tier 1 fixes
-- `d239882` docs: add setup guide, env templates, and seed instructions
-- `60c276d` feat(frontend): build tier1 queue UI with auth, dnd tokens, analytics, and realtime sync
-- `6c5c1a8` feat(backend): implement tier1 API, socket events, and business-logic tests
-- `ce70ec4` chore: scaffold monorepo with frontend and backend dependencies
+### Backend services
+- backend/src/services/tokenCreationService.js
+  - Shared token creation rules (manager add + public join)
+- backend/src/services/activityLogService.js
+  - Activity logging utility
+- backend/src/services/aiInsightsService.js
+  - Gemini request/response orchestration
 
-## 10) Known Caveats / Notes for Next Assistant
+### Backend middleware and validators
+- backend/src/middleware/authMiddleware.js, validate.js, rateLimiters.js, notFound.js, errorHandler.js
+- backend/src/validators/authValidators.js, queueValidators.js, tokenValidators.js
+  - queue validators now include counterId param + counter-name input validation
 
-1. Mongo Atlas SRV DNS issue on this machine
-- `mongodb+srv://` failed with `querySrv ECONNREFUSED`
-- Non-SRV URI worked reliably and is used locally
+### Frontend routing and shell
+- frontend/src/App.jsx
+  - Route map for auth, manager pages, public join/track pages
+- frontend/src/components/common/ProtectedRoute.jsx
+  - Auth guard for manager routes
+- frontend/src/components/layout/AppShell.jsx
+  - Shared authenticated layout/navigation
 
-2. Reporting design choice
-- Daily/weekly/monthly reports are intentionally computed on-demand from `Token` collection data
-- No separate pre-aggregated analytics collection is used in the current design
+### Frontend pages
+- frontend/src/pages/LoginPage.jsx
+- frontend/src/pages/RegisterPage.jsx
+- frontend/src/pages/QueuesPage.jsx
+- frontend/src/pages/QueueDetailPage.jsx
+  - Queue operations, token actions, reorder, QR join card display, counter-management card integration
+- frontend/src/pages/AnalyticsPage.jsx
+- frontend/src/pages/ActivityLogsPage.jsx
+- frontend/src/pages/JoinPage.jsx
+  - Public queue join form and redirect to tracking URL
+- frontend/src/pages/TrackTokenPage.jsx
+  - Public tracking view + notification behavior + serving counter direction text
 
-3. DnD reorder is intentionally disabled in filtered/paginated token views
-- Prevents partial-list reorder corruption
+### Frontend components and hooks
+- frontend/src/components/queues/QueueCard.jsx
+- frontend/src/components/queues/QueueJoinQrCard.jsx
+- frontend/src/components/queues/QueueCountersCard.jsx
+  - Manager counter management UI with busy-counter disabled states and error handling
+- frontend/src/components/tokens/AddTokenForm.jsx
+- frontend/src/components/tokens/TokenDndList.jsx
+- frontend/src/components/tokens/TokenRow.jsx
+- frontend/src/components/analytics/KpiCards.jsx
+- frontend/src/components/analytics/QueueTrendChart.jsx
+- frontend/src/components/analytics/StatusPieChart.jsx
+- frontend/src/components/analytics/HourlyTrafficChart.jsx
+- frontend/src/hooks/useSocket.js
+- frontend/src/hooks/usePublicTrackSocket.js
+- frontend/src/hooks/useServiceTimer.js
 
-4. Security note
-- Rotate Gemini key if exposed in logs/chats/history.
+### Frontend API clients and context
+- frontend/src/api/client.js
+- frontend/src/api/authApi.js
+- frontend/src/api/queueApi.js
+  - Includes counter management request helpers
+- frontend/src/api/tokenApi.js
+- frontend/src/api/analyticsApi.js
+- frontend/src/api/activityLogApi.js
+- frontend/src/context/AuthContext.jsx
+- frontend/src/context/ThemeContext.jsx
 
-5. Public tracking endpoint note
-- `GET /api/public/track/:queueId/:tokenId` is intentionally unauthenticated and protected with basic rate limiting (`express-rate-limit`)
-- Public Socket.io tracking is invalidation-only and should stay payload-minimal
+### Deployment config files
+- render.yaml
+- frontend/vercel.json
 
-## 11) Current Goal State
+## 7) Live Deployment URLs
 
-- Tier 1, Tier 2, Tier 3, and public customer tracking implemented and tested.
-- User requested this handoff to continue conversation in a new Claude chat without re-explaining context.
+- Frontend (Vercel): https://frontend-sand-two-jsq0xwws5z.vercel.app
+- Backend (Render): https://queueflow-backend-fk17.onrender.com
+- GitHub repo: https://github.com/techWithKeerthana/rugas-queue-management-system
 
-If you are the next assistant: start by reading this file, then run tests and build once, and proceed only with user-requested follow-ups.
+## 8) Required Environment Variables (Names Only)
+
+### Backend
+- PORT
+- MONGO_URI
+- JWT_SECRET
+- JWT_EXPIRES_IN
+- FRONTEND_ORIGIN
+- GEMINI_API_KEY
+- GEMINI_MODEL
+- INSIGHTS_TIMEOUT_MS
+
+### Frontend
+- VITE_API_URL
+- VITE_SOCKET_URL
+
+## 9) Test Status and Coverage
+
+- Current backend test suite status: passing
+- Exact count: 28 tests, 1 suite
+- Last confirmed command: npm test (backend)
+
+Coverage themes in backend/tests/api.test.js:
+- Priority insertion ordering
+- Serve/cancel/complete/undo state/timestamp integrity
+- Reorder persistence
+- Realtime event emission smoke checks
+- Duplicate active-token prevention
+- Capacity enforcement
+- Search + pagination behavior
+- Analytics reports and CSV/PDF export
+- Archive mutability and filtering
+- Activity logs endpoint behavior
+- AI insights fallback and timeout behavior
+- Public tracking safe payload and mismatch rejection
+- Public join validation/duplicate/capacity/rate-limit
+- Public tracking assignedCounter exposure in safe payload
+- Multi-counter serve-top and busy-counter conflict
+- Multi-counter step-3 scenario tests (all passing):
+  1. complete serving token frees counter and next serve-top can use it
+  2. cancel serving token frees counter
+  3. cancel waiting token has no counter side effects
+  4. undo completed token restores serving and re-occupies prior counter
+  5. undo cancelled serving token restores serving and re-occupies prior counter
+- Counter management API tests (all passing):
+  1. add counter
+  2. rename counter
+  3. remove counter
+  4. blocked rename when counter has active serving token
+  5. blocked removal when counter has active serving token
+
+## 10) Known Caveats and Operational Notes
+
+- Render free-tier cold starts can make the first request noticeably slow.
+- MongoDB Atlas SRV DNS lookups may fail on some Windows/network environments; non-SRV Mongo URI is a known local workaround.
+- AI insights availability depends on Gemini service latency/limits; fallback behavior is intentionally user-friendly.
+- Public endpoints are intentionally rate-limited and return minimal safe data.
+- Frontend build currently passes, with a Vite warning about large bundle chunk size (non-blocking).
+
+## 11) Next Steps
+
+Multi-counter work is complete.
+
+1. No remaining required multi-counter steps.
+2. Optional follow-up: reduce frontend bundle size warning via route-based code splitting.
+
+## 12) Quick Commands
+
+From repository root D:\Rugas:
+
+- Install all:
+  - npm install
+  - cd backend && npm install
+  - cd ../frontend && npm install
+
+- Run development:
+  - npm run dev
+
+- Backend only:
+  - npm run dev --prefix backend
+
+- Frontend only:
+  - npm run dev --prefix frontend
+
+- Backend tests:
+  - cd backend
+  - npm test
+
+- Frontend build:
+  - cd frontend
+  - npm run build
