@@ -173,3 +173,12 @@ Tests verify:
 - Queue names are unique per manager.
 - Undo is one-step and token-scoped.
 - Only one token can be in serving state per queue at a time.
+- Daily/weekly/monthly reports are computed on-demand from the Token collection by design (no pre-aggregated analytics collection).
+
+## MongoDB Atlas DNS SRV Workaround
+
+On some Windows/network DNS setups, `mongodb+srv://` may fail with:
+
+- `querySrv ECONNREFUSED _mongodb._tcp.<cluster-host>`
+
+If this occurs, use the non-SRV Atlas URI in `backend/.env` (the full `mongodb://host1,host2,host3/...` format with `replicaSet` and `authSource`) as a working fallback. This is an environment DNS resolver issue, not an application bug.
