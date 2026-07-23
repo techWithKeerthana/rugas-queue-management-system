@@ -145,7 +145,7 @@ export default function QueueDetailPage() {
 
   if (loading) {
     return (
-      <div className="space-y-3">
+      <div className="premium-page">
         <Skeleton className="h-24" />
         <Skeleton className="h-14" />
         <Skeleton className="h-64" />
@@ -154,15 +154,15 @@ export default function QueueDetailPage() {
   }
 
   return (
-    <div className="space-y-5">
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <h2 className="text-2xl font-black text-slate-900 dark:text-slate-100">{queue?.name}</h2>
-        <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
+    <div className="premium-page">
+      <section className="surface-card surface-card-hover">
+        <h2 className="heading-display text-3xl font-black">{queue?.name}</h2>
+        <p className="mt-2 text-sm text-muted">
           Waiting: {waitingCount} • Average service time: {avgServiceSeconds || 0} seconds
         </p>
-        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Capacity: {queue?.capacity || "Unlimited"}</p>
+        <p className="mt-1 text-xs text-soft">Capacity: {queue?.capacity || "Unlimited"}</p>
         <div className="mt-4">
-          <button type="button" onClick={serveTop} className="rounded-lg bg-slate-900 px-4 py-2 font-semibold text-white">
+          <button type="button" onClick={serveTop} className="btn-primary">
             Serve Top Token
           </button>
         </div>
@@ -172,13 +172,13 @@ export default function QueueDetailPage() {
 
       {queue ? <QueueCountersCard queueId={queue._id} queue={queue} tokens={tokens} onQueueChange={setQueue} /> : null}
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <section className="surface-card">
         <div className="grid gap-3 md:grid-cols-[1fr_120px_auto]">
           <input
             value={searchInput}
             onChange={(event) => setSearchInput(event.target.value)}
             placeholder="Search by token number, ID, or person name"
-            className="rounded-lg border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+            className="soft-input"
           />
           <select
             value={pageSize}
@@ -186,7 +186,7 @@ export default function QueueDetailPage() {
               setPageSize(Number(event.target.value));
               setPage(1);
             }}
-            className="rounded-lg border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+            className="soft-input"
           >
             <option value={10}>10 / page</option>
             <option value={20}>20 / page</option>
@@ -199,7 +199,7 @@ export default function QueueDetailPage() {
               setPage(1);
               setSearch(searchInput.trim());
             }}
-            className="rounded-lg bg-teal-600 px-4 py-2 font-semibold text-white"
+            className="btn-primary"
           >
             Search
           </button>
@@ -212,7 +212,7 @@ export default function QueueDetailPage() {
               setSearchInput("");
               setPage(1);
             }}
-            className="mt-2 text-sm text-teal-700 underline dark:text-teal-300"
+            className="mt-2 text-sm text-brand-700 underline dark:text-brand-300"
           >
             Clear search
           </button>
@@ -226,7 +226,7 @@ export default function QueueDetailPage() {
       ) : (
         <>
           {search || (pagination && pagination.total > pagination.pageSize) ? (
-            <p className="text-xs text-slate-500 dark:text-slate-400">
+            <p className="text-xs text-soft">
               Drag reorder is disabled while search or pagination is active. Clear filters to reorder the full waiting list.
             </p>
           ) : null}
@@ -242,8 +242,8 @@ export default function QueueDetailPage() {
       )}
 
       {pagination ? (
-        <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-900">
-          <p className="text-sm text-slate-600 dark:text-slate-400">
+        <div className="surface-card flex items-center justify-between px-4 py-3">
+          <p className="text-sm text-muted">
             Page {pagination.page} of {pagination.totalPages} • Total results: {pagination.total}
           </p>
           <div className="flex gap-2">
@@ -251,7 +251,7 @@ export default function QueueDetailPage() {
               type="button"
               disabled={!pagination.hasPreviousPage}
               onClick={() => setPage((prev) => Math.max(1, prev - 1))}
-              className="rounded-md border border-slate-300 px-3 py-1 text-sm disabled:opacity-50 dark:border-slate-700"
+              className="btn-secondary disabled:opacity-50"
             >
               Previous
             </button>
@@ -259,7 +259,7 @@ export default function QueueDetailPage() {
               type="button"
               disabled={!pagination.hasNextPage}
               onClick={() => setPage((prev) => prev + 1)}
-              className="rounded-md border border-slate-300 px-3 py-1 text-sm disabled:opacity-50 dark:border-slate-700"
+              className="btn-secondary disabled:opacity-50"
             >
               Next
             </button>

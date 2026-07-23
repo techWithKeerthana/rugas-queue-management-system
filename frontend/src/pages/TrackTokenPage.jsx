@@ -85,29 +85,29 @@ export default function TrackTokenPage() {
     previousTrackingRef.current = tracking;
   }, [tracking]);
   if (loading) {
-    return <div className="mx-auto max-w-xl p-6 text-slate-700">Loading token status...</div>;
+    return <div className="mx-auto max-w-xl p-6 text-muted">Loading token status...</div>;
   }
 
   return (
-    <main className="min-h-screen bg-slate-100 px-4 py-10 text-slate-900">
-      <section className="mx-auto max-w-xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h1 className="text-2xl font-black">Queue Status</h1>
+    <main className="min-h-screen px-4 py-10 text-slate-900 dark:text-slate-100">
+      <section className="surface-card mx-auto max-w-xl animate-fade-up p-6">
+        <h1 className="heading-display text-3xl font-black">Queue Status</h1>
 
         {errorMessage ? (
-          <p className="mt-4 rounded-lg bg-rose-50 p-3 text-sm text-rose-700">{errorMessage}</p>
+          <p className="mt-4 rounded-xl bg-rose-100/80 p-3 text-sm text-rose-700 dark:bg-rose-900/30 dark:text-rose-300">{errorMessage}</p>
         ) : (
           <div className="mt-4 space-y-3">
-            <p className="text-sm text-slate-600">Token #{tracking?.tokenNumber}</p>
-            <p className="text-lg font-semibold">{statusLabel[tracking?.status] || tracking?.status}</p>
+            <p className="text-sm text-muted">Token #{tracking?.tokenNumber}</p>
+            <p className="heading-display text-xl font-semibold">{statusLabel[tracking?.status] || tracking?.status}</p>
             {tracking?.status === "serving" && tracking?.assignedCounter ? (
-              <p className="rounded-lg bg-emerald-50 px-3 py-2 font-medium text-emerald-800">
+              <p className="rounded-xl bg-emerald-100/80 px-3 py-2 font-medium text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300">
                 Go to {tracking.assignedCounter}
               </p>
             ) : null}
             <p>
               Position: {tracking?.positionInQueue === null ? "N/A" : tracking?.positionInQueue}
             </p>
-            <p>Estimated wait: {tracking?.estimatedWaitSeconds || 0} seconds</p>
+            <p className="text-muted">Estimated wait: {tracking?.estimatedWaitSeconds || 0} seconds</p>
           </div>
         )}
       </section>

@@ -168,15 +168,15 @@ export default function AnalyticsPage() {
   };
 
   return (
-    <div className="space-y-5">
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
-        <h2 className="text-2xl font-black text-slate-900 dark:text-slate-100">Analytics Dashboard</h2>
-        <p className="mt-1 text-slate-600 dark:text-slate-400">Live queue performance metrics and trends.</p>
+    <div className="premium-page">
+      <section className="surface-card surface-card-hover">
+        <h2 className="heading-display text-3xl font-black">Analytics Dashboard</h2>
+        <p className="mt-1 text-sm text-muted">Live queue performance metrics and trends.</p>
         <div className="mt-4 grid gap-3 lg:grid-cols-[1fr_180px_auto_auto]">
           <select
             value={selectedQueueId}
             onChange={(event) => setSelectedQueueId(event.target.value)}
-            className="rounded-lg border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+            className="soft-input"
           >
             {queues.map((queue) => (
               <option key={queue._id} value={queue._id}>
@@ -188,17 +188,17 @@ export default function AnalyticsPage() {
           <select
             value={period}
             onChange={(event) => setPeriod(event.target.value)}
-            className="rounded-lg border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+            className="soft-input"
           >
             <option value="daily">Daily</option>
             <option value="weekly">Weekly</option>
             <option value="monthly">Monthly</option>
           </select>
 
-          <button type="button" onClick={exportCSV} className="rounded-lg bg-emerald-600 px-4 py-2 font-semibold text-white">
+          <button type="button" onClick={exportCSV} className="btn-primary bg-emerald-600 hover:bg-emerald-500">
             Export CSV
           </button>
-          <button type="button" onClick={exportPDF} className="rounded-lg bg-rose-600 px-4 py-2 font-semibold text-white">
+          <button type="button" onClick={exportPDF} className="btn-primary bg-rose-600 hover:bg-rose-500">
             Export PDF
           </button>
         </div>
@@ -219,20 +219,20 @@ export default function AnalyticsPage() {
           </div>
           <HourlyTrafficChart data={hourlyTraffic} />
 
-          <section className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+          <section className="surface-card">
             <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">AI Insights</h3>
+              <h3 className="heading-display text-lg font-semibold">AI Insights</h3>
               <button
                 type="button"
                 onClick={refreshInsights}
                 disabled={insightsLoading}
-                className="rounded-md bg-teal-600 px-3 py-1.5 text-sm font-semibold text-white disabled:opacity-60"
+                className="btn-primary px-3 py-1.5 disabled:opacity-60"
               >
                 {insightsLoading ? "Refreshing..." : "Refresh Insights"}
               </button>
             </div>
 
-            <p className="whitespace-pre-wrap text-sm text-slate-700 dark:text-slate-300">
+            <p className="whitespace-pre-wrap text-sm text-muted">
               {insights?.insightText || "Insights temporarily unavailable. Please try again shortly."}
             </p>
             {insights?.stale ? (
@@ -243,10 +243,10 @@ export default function AnalyticsPage() {
             ) : null}
           </section>
 
-          <section className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-            <h3 className="mb-3 text-lg font-semibold text-slate-900 dark:text-slate-100">{period} report</h3>
+          <section className="surface-card">
+            <h3 className="heading-display mb-3 text-lg font-semibold">{period} report</h3>
             {reportRows.length === 0 ? (
-              <p className="text-sm text-slate-600 dark:text-slate-400">No report rows for selected period.</p>
+              <p className="text-sm text-muted">No report rows for selected period.</p>
             ) : (
               <div className="overflow-auto">
                 <table className="min-w-full text-left text-sm">

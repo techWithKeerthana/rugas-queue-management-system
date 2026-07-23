@@ -23,17 +23,17 @@ export default function AddTokenForm({ onSubmit, disabled }) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 md:grid-cols-[1fr_180px_auto]">
+    <form onSubmit={handleSubmit} className="surface-card grid gap-3 md:grid-cols-[1fr_180px_auto]">
       <input
         value={personName}
         onChange={(event) => setPersonName(event.target.value)}
         placeholder="Person name"
-        className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none ring-amber-200 focus:ring"
+        className="soft-input"
       />
       <select
         value={priority}
         onChange={(event) => setPriority(event.target.value)}
-        className="rounded-lg border border-slate-300 px-3 py-2"
+        className="soft-input"
       >
         {priorities.map((item) => (
           <option key={item.value} value={item.value}>
@@ -41,7 +41,7 @@ export default function AddTokenForm({ onSubmit, disabled }) {
           </option>
         ))}
       </select>
-      <button type="submit" disabled={disabled} className="rounded-lg bg-teal-600 px-4 py-2 font-semibold text-white disabled:opacity-60">
+      <button type="submit" disabled={disabled} className="btn-primary">
         Add Token
       </button>
     </form>

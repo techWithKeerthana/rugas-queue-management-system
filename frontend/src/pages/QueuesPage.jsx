@@ -86,28 +86,31 @@ export default function QueuesPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <h2 className="text-2xl font-black text-slate-900 dark:text-slate-100">Your Queues</h2>
+    <div className="premium-page">
+      <section className="surface-card surface-card-hover">
+        <h2 className="heading-display text-3xl font-black">Your Queues</h2>
+        <p className="mt-2 max-w-2xl text-sm text-muted">
+          Configure and operate each queue from a clean central dashboard built for high-throughput counter workflows.
+        </p>
         <div className="mt-3 flex gap-2">
           <button
             type="button"
             onClick={() => setStatusFilter("active")}
-            className={`rounded-md px-3 py-1 text-sm ${statusFilter === "active" ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900" : "border border-slate-300 text-slate-700 dark:border-slate-700 dark:text-slate-200"}`}
+            className={statusFilter === "active" ? "tab-link tab-link-active" : "tab-link"}
           >
             Active
           </button>
           <button
             type="button"
             onClick={() => setStatusFilter("archived")}
-            className={`rounded-md px-3 py-1 text-sm ${statusFilter === "archived" ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900" : "border border-slate-300 text-slate-700 dark:border-slate-700 dark:text-slate-200"}`}
+            className={statusFilter === "archived" ? "tab-link tab-link-active" : "tab-link"}
           >
             Archived
           </button>
           <button
             type="button"
             onClick={() => setStatusFilter("all")}
-            className={`rounded-md px-3 py-1 text-sm ${statusFilter === "all" ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900" : "border border-slate-300 text-slate-700 dark:border-slate-700 dark:text-slate-200"}`}
+            className={statusFilter === "all" ? "tab-link tab-link-active" : "tab-link"}
           >
             All
           </button>
@@ -117,7 +120,7 @@ export default function QueuesPage() {
             value={queueName}
             onChange={(event) => setQueueName(event.target.value)}
             placeholder="Create a queue name"
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+            className="soft-input"
           />
           <input
             type="number"
@@ -125,9 +128,9 @@ export default function QueuesPage() {
             value={capacity}
             onChange={(event) => setCapacity(event.target.value)}
             placeholder="Capacity"
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+            className="soft-input"
           />
-          <button className="rounded-lg bg-amber-500 px-4 py-2 font-semibold text-slate-900">Create Queue</button>
+          <button className="btn-primary">Create Queue</button>
         </form>
       </section>
 
@@ -151,7 +154,7 @@ export default function QueuesPage() {
               <button
                 type="button"
                 onClick={() => toggleArchive(queue)}
-                className="w-full rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700 dark:border-slate-700 dark:text-slate-200"
+                className="btn-secondary w-full"
               >
                 {queue.isArchived ? "Unarchive" : "Archive"}
               </button>

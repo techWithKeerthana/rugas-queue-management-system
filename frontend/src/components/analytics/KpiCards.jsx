@@ -15,9 +15,9 @@ export default function KpiCards({ summary }) {
   return (
     <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
       {cards.map(([label, value]) => (
-        <article key={label} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-xs uppercase tracking-wide text-slate-500">{label}</p>
-          <p className="mt-2 text-xl font-bold text-slate-900">{value}</p>
+        <article key={label} className="surface-card surface-card-hover rounded-2xl p-4">
+          <p className="text-xs uppercase tracking-widest text-soft">{label}</p>
+          <p className="mt-2 font-display text-xl font-bold text-slate-900 dark:text-slate-100">{value}</p>
         </article>
       ))}
     </section>
