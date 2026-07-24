@@ -336,6 +336,20 @@ const getAIInsights = asyncHandler(async (req, res) => {
       stale: false,
     });
   } catch (error) {
+    // Log precise failure context for production diagnostics (Gemini key/model/timeout/network).
+    // Keep client response generic to avoid leaking provider or credential details.
+    // eslint-disable-next-line no-console
+    console.error("AI insights generation failed", {
+      queueId: String(queue._id),
+      managerId: String(req.user.id),
+      message: error?.message,
+      name: error?.name,
+      stack: error?.stack,
+      timeoutMs: Number(process.env.INSIGHTS_TIMEOUT_MS || 12000),
+      model: process.env.GEMINI_MODEL || "gemini-1.5-flash",
+      hasGeminiApiKey: Boolean(process.env.GEMINI_API_KEY),
+    });
+
     if (existing) {
       return res.json({
         available: true,

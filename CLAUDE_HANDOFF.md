@@ -298,10 +298,10 @@ Base backend URL (prod): https://queueflow-backend-fk17.onrender.com
 
 ## 7) Live Deployment URLs
 
-- Frontend (Vercel): https://queueflow.vercel.app
+- Frontend (Vercel): https://rugas-queue-management-system.vercel.app
 - Backend (Render): https://queueflow-backend-fk17.onrender.com
 - GitHub repo: https://github.com/techWithKeerthana/rugas-queue-management-system
-- Status: URLs unchanged and still accurate after merging multi-counter into master.
+- Status: production frontend URL is finalized. Treat this as the only canonical frontend production origin.
 
 ## 8) Required Environment Variables (Names Only)
 
@@ -325,9 +325,9 @@ Base backend URL (prod): https://queueflow-backend-fk17.onrender.com
 
 ### Backend Production CORS Value (Render -> Environment)
 - FRONTEND_ORIGIN must include the exact production frontend origin.
-- Current origin in docs: https://queueflow.vercel.app
-- If frontend URL changes (renamed Vercel project subdomain or custom domain), update FRONTEND_ORIGIN to that exact new origin.
-- Multiple allowed origins can be comma-separated during migration/cutover.
+- Current canonical origin: https://rugas-queue-management-system.vercel.app
+- If a future domain migration happens, update FRONTEND_ORIGIN to the new exact origin before validating auth flows.
+- Multiple allowed origins can be comma-separated only during temporary migration/cutover windows.
 
 ## 9) Test Status and Coverage
 
