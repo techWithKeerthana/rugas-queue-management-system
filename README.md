@@ -2,21 +2,20 @@
 
 A production-style real-time queue management platform for service desks, with manager operations, public self-service joining, and live tracking.
 
-## Why This Project
-
-QueueFlow demonstrates how to build a full-stack, real-time SaaS workflow: authenticated manager tools, customer-safe public flows, analytics, and operational safeguards (capacity limits, validation, audit logs, rate limits).
-
 ## Core Features
 
 - Real-time queue operations with Socket.io (add, serve, complete, cancel, undo)
 - Priority insertion (emergency, VIP, senior citizen, normal)
+- Drag-and-drop reorder for waiting tokens
 - Multi-counter support with automatic counter assignment while serving
-- Public no-login queue join via sharable link/QR and live token tracking
-- Search + pagination for high-volume queues
-- Analytics dashboard (summary metrics, trends, status mix, hourly traffic)
+- Public no-login join and live token tracking
+- Browser notifications on public tracking ("next in line" and "now serving")
+- Analytics dashboard (summary, trends, status mix, hourly traffic)
+- Gemini-powered AI insights
 - CSV/PDF report exports
-- Gemini-powered AI insights with cache/timeout fallback
-- Queue archive/unarchive and manager activity logs
+- Activity logs for manager actions
+- Queue archive/unarchive controls
+- Dark/light theme toggle
 
 ## Tech Stack
 
@@ -27,18 +26,13 @@ QueueFlow demonstrates how to build a full-stack, real-time SaaS workflow: authe
 
 ## Live Demo
 
-- Frontend (Vercel): https://queueflow.vercel.app
+- Frontend (Vercel): https://rugas-queue-management-system.vercel.app
 - Backend (Render): https://queueflow-backend-fk17.onrender.com
 - Repository: https://github.com/techWithKeerthana/rugas-queue-management-system
 
-## UI Preview
+## Architecture (High Level)
 
-Screenshots are included in the repo:
-
-- Login: [docs/screenshots/login.png](docs/screenshots/login.png)
-- Queue Dashboard: [docs/screenshots/queue-dashboard.png](docs/screenshots/queue-dashboard.png)
-- Analytics: [docs/screenshots/analytics.png](docs/screenshots/analytics.png)
-- Public Tracking: [docs/screenshots/public-track.png](docs/screenshots/public-track.png)
+QueueFlow has two surfaces: an authenticated manager dashboard for queue operations and analytics, and a public no-login flow for queue joining and token tracking. The backend handles business rules and persistence, while Socket.io broadcasts real-time state updates to manager and public tracking clients.
 
 ## Run Locally
 
@@ -50,7 +44,25 @@ npm install --prefix backend
 npm install --prefix frontend
 ```
 
-2. Configure environment files from examples.
+2. Configure required environment variables.
+
+Backend (required names):
+
+- PORT
+- MONGO_URI
+- JWT_SECRET
+- JWT_EXPIRES_IN
+- FRONTEND_ORIGIN
+- GEMINI_API_KEY
+- GEMINI_MODEL
+- INSIGHTS_TIMEOUT_MS
+
+Frontend (required names):
+
+- VITE_API_URL
+- VITE_SOCKET_URL
+
+Use the example files as a starting point:
 
 - backend/.env.example
 - frontend/.env.example
@@ -69,6 +81,13 @@ npm run test --prefix backend
 npm run build --prefix frontend
 ```
 
-## Architecture (High Level)
+## Screenshots (Add Your Own)
 
-Managers use authenticated dashboard routes to manage queues and token flow, while customers use public routes to join and track tokens without login. The backend publishes real-time updates through Socket.io rooms, with manager channels for full queue state updates and restricted public channels for safe tracking refresh behavior.
+Add human-captured screenshots for quick portfolio scanning. Suggested paths/examples:
+
+```md
+![Login](./screenshots/login.png)
+![Queue Detail with Multi-Counter](./screenshots/queue-detail-multi-counter.png)
+![Analytics Dashboard](./screenshots/analytics-dashboard.png)
+![Public Tracking](./screenshots/public-tracking.png)
+```
