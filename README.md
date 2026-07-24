@@ -81,13 +81,12 @@ npm run test --prefix backend
 npm run build --prefix frontend
 ```
 
-## Screenshots (Add Your Own)
+## Screenshots
 
-Add human-captured screenshots for quick portfolio scanning. Suggested paths/examples:
-
-```md
 ![Login](./screenshots/login.png)
+
 ![Queue Detail with Multi-Counter](./screenshots/queue-detail-multi-counter.png)
-![Analytics Dashboard](./screenshots/analytics-dashboard.png)
-![Public Tracking](./screenshots/public-tracking.png)
-```
+
+![Analytics Dashboard](./screenshots/analytics.png)
+
+![Public Tracking (Go to Counter)](./screenshots/public-tracking.png)
